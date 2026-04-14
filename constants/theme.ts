@@ -1,29 +1,47 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
-
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+export const GrottoTokens = {
+  gold: '#C9A84C',
+  goldLight: '#D4AF37',
+  goldMuted: '#E8D5A3',
+  goldSubtle: '#F5EDD6',
+  white: '#FFFFFF',
+  offWhite: '#FAF9F6',
+  surface: '#F2F0EB',
+  textPrimary: '#1A1A1A',
+  textSecondary: '#6B6560',
+  textMuted: '#9E9890',
+  borderSubtle: '#EEECE7',
+  shadow: 'rgba(0,0,0,0.08)',
+  shadowMedium: 'rgba(0,0,0,0.14)',
+  error: '#D44C4C',
+  success: '#4CAF7D',
+};
+
+export const FontFamily = {
+  serifRegular: 'PlayfairDisplay_400Regular',
+  serifBold: 'PlayfairDisplay_700Bold',
+  sansRegular: 'Inter_400Regular',
+  sansMedium: 'Inter_500Medium',
+  sansSemiBold: 'Inter_600SemiBold',
+};
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    text: GrottoTokens.textPrimary,
+    background: GrottoTokens.white,
+    tint: GrottoTokens.gold,
+    icon: GrottoTokens.textSecondary,
+    tabIconDefault: GrottoTokens.textMuted,
+    tabIconSelected: GrottoTokens.gold,
   },
   dark: {
     text: '#ECEDEE',
     background: '#151718',
-    tint: tintColorDark,
+    tint: GrottoTokens.gold,
     icon: '#9BA1A6',
     tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    tabIconSelected: GrottoTokens.gold,
   },
 };
 

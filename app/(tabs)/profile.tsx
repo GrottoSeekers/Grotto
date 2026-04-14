@@ -4,15 +4,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { GrottoTokens, FontFamily } from '@/constants/theme';
 import { Layout } from '@/constants/layout';
 
-export default function MySitsScreen() {
+export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Text style={styles.heading}>My Sits</Text>
+      <Text style={styles.heading}>Profile</Text>
       <View style={styles.empty}>
-        <Ionicons name="calendar-outline" size={48} color={GrottoTokens.goldMuted} />
-        <Text style={styles.emptyTitle}>No sits yet</Text>
+        <Ionicons name="person-circle-outline" size={64} color={GrottoTokens.goldMuted} />
+        <Text style={styles.emptyTitle}>Not signed in</Text>
         <Text style={styles.emptyBody}>
-          Your upcoming and past sits will appear here once you book or accept a sit.
+          Sign in to manage your profile, track your sits, and connect with the Grotto community.
         </Text>
       </View>
     </SafeAreaView>

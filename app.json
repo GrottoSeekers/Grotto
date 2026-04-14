@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Grotto",
-    "slug": "Grotto",
+    "slug": "grotto",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -19,7 +19,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["RECEIVE_BOOT_COMPLETED", "VIBRATE"]
     },
     "web": {
       "output": "static",
@@ -38,11 +39,23 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-sqlite",
+      "expo-font",
+      ["expo-notifications", { "sounds": [] }],
+      "expo-background-fetch",
+      "expo-task-manager"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b8d200d0-ec2f-4074-94b7-2a5669213988"
+      }
+    },
+    "owner": "grottositters"
   }
 }
