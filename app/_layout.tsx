@@ -14,7 +14,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { db } from '@/db/client';
@@ -62,18 +62,32 @@ export default function RootLayout() {
   }, [migrationsError]);
 
   useEffect(() => {
-    if (fontsLoaded && migrationsSuccess) {
-      // Seed the database with mock data on first run
-      seedDatabase().catch(console.error);
-      startPhotoSchedulerBackgroundFetch().catch(console.error);
+    if (fontsLoaded && (migrationsSuccess || migrationsError)) {
+      if (migrationsSuccess) {
+        seedDatabase().catch(console.error);
+        startPhotoSchedulerBackgroundFetch().catch(console.error);
+      }
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, migrationsSuccess]);
+  }, [fontsLoaded, migrationsSuccess, migrationsError]);
 
-  if (!fontsLoaded || !migrationsSuccess) {
+  if (!fontsLoaded || (!migrationsSuccess && !migrationsError)) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: GrottoTokens.white }}>
         <ActivityIndicator color={GrottoTokens.gold} />
+      </View>
+    );
+  }
+
+  if (migrationsError) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: GrottoTokens.white, padding: 32 }}>
+        <Text style={{ color: GrottoTokens.error, fontFamily: 'Inter_600SemiBold', fontSize: 16, marginBottom: 8 }}>
+          Database error
+        </Text>
+        <Text style={{ color: GrottoTokens.textSecondary, fontFamily: 'Inter_400Regular', fontSize: 13, textAlign: 'center' }}>
+          {migrationsError.message}
+        </Text>
       </View>
     );
   }

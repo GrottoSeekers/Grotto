@@ -9,4 +9,3 @@ import m0000 from './0000_daffy_magik.sql';
       m0000
     }
   }
-  

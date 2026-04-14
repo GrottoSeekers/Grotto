@@ -6,11 +6,13 @@ interface SessionStore {
   isLoading: boolean;
   setUser: (user: User) => void;
   clearUser: () => void;
+  setLoadingDone: () => void;
 }
 
 export const useSessionStore = create<SessionStore>((set) => ({
   currentUser: null,
   isLoading: true,
   setUser: (user) => set({ currentUser: user, isLoading: false }),
-  clearUser: () => set({ currentUser: null }),
+  clearUser: () => set({ currentUser: null, isLoading: false }),
+  setLoadingDone: () => set({ isLoading: false }),
 }));

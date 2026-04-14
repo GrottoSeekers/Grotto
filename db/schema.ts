@@ -16,6 +16,8 @@ export const users = sqliteTable('users', {
   bio: text(),
   rating: real().default(0),
   reviewCount: integer('review_count').default(0),
+  email: text(),
+  passwordHash: text('password_hash'),
   createdAt: timestamp(),
 });
 
@@ -131,6 +133,13 @@ export const boostDefinitions = sqliteTable('boost_definitions', {
   // SF Symbol name
   icon: text(),
   sortOrder: integer('sort_order').default(0),
+});
+
+// ─── Auth Sessions ────────────────────────────────────────────────────────────
+export const authSessions = sqliteTable('auth_sessions', {
+  id: integer().primaryKey(),
+  userId: integer('user_id').references(() => users.id).notNull(),
+  createdAt: timestamp(),
 });
 
 // ─── Type exports ─────────────────────────────────────────────────────────────
