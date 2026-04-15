@@ -8,20 +8,6 @@
       "when": 1776067555003,
       "tag": "0000_daffy_magik",
       "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1776198156000,
-      "tag": "0001_sour_queen_noir",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1776200000000,
-      "tag": "0002_add_testimonials",
-      "breakpoints": true
     }
   ]
 }
