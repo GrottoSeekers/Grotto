@@ -972,6 +972,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 5,
     right: 5,
+    zIndex: 10,
   },
   removeCircle: {
     width: 22,
