@@ -87,9 +87,14 @@ export function registerPhotoSchedulerTask() {
 }
 
 export async function startPhotoSchedulerBackgroundFetch() {
-  await BackgroundFetch.registerTaskAsync(PHOTO_CHECK_TASK, {
-    minimumInterval: 60 * 15,
-    stopOnTerminate: false,
-    startOnBoot: true,
-  });
+  try {
+    await BackgroundFetch.registerTaskAsync(PHOTO_CHECK_TASK, {
+      minimumInterval: 60 * 15,
+      stopOnTerminate: false,
+      startOnBoot: true,
+    });
+  } catch {
+    // Background fetch is not available in Expo Go or when UIBackgroundModes
+    // hasn't been configured yet — silently ignore so no error overlay appears.
+  }
 }
