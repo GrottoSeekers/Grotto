@@ -11,12 +11,20 @@ function normalizeEmail(email: string) {
 
 async function passwordDigest(email: string, password: string) {
   const e = normalizeEmail(email);
-  // Use Web Crypto API (available in Hermes / React Native 0.71+, no native module needed)
-  const encoded = new TextEncoder().encode(`${e}:${password}`);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', encoded);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  // globalThis.crypto is available in Hermes (React Native 0.71+)
+  const subtle = (globalThis as unknown as { crypto: Crypto }).crypto?.subtle;
+  if (subtle) {
+    const encoded = new TextEncoder().encode(`${e}:${password}`);
+    const hashBuffer = await subtle.digest('SHA-256', encoded);
+    return Array.from(new Uint8Array(hashBuffer))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+  // Fallback: simple djb2-style hash (local-only app)
+  const str = `${e}:${password}`;
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = (h * 33) ^ str.charCodeAt(i);
+  return (h >>> 0).toString(16);
 }
 
 export async function getCurrentUserFromDb() {
@@ -36,8 +44,10 @@ export async function signOutDb() {
   await db.delete(authSessions).where(eq(authSessions.id, 1));
 }
 
-export async function signUpDb(input: { role: AuthRole; email: string; password: string }) {
+export async function signUpDb(input: { role: AuthRole; firstName: string; email: string; password: string }) {
   const email = normalizeEmail(input.email);
+  const firstName = input.firstName.trim();
+  if (!firstName) throw new Error('Enter your first name.');
   if (!email) throw new Error('Enter an email address.');
   if (input.password.length < 6) throw new Error('Password must be at least 6 characters.');
 
@@ -46,7 +56,7 @@ export async function signUpDb(input: { role: AuthRole; email: string; password:
   const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
   if (existing.length > 0) throw new Error('An account with that email already exists.');
 
-  const name = email.split('@')[0] || 'Grotto User';
+  const name = firstName;
 
   const inserted = await db
     .insert(users)

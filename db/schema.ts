@@ -18,6 +18,13 @@ export const users = sqliteTable('users', {
   reviewCount: integer('review_count').default(0),
   email: text(),
   passwordHash: text('password_hash'),
+  occupation: text(),
+  location: text(),
+  // JSON array e.g. '["dogs","cats"]'
+  preferredPets: text('preferred_pets'),
+  whyIWantToSit: text('why_i_want_to_sit'),
+  // JSON array of local photo URIs e.g. '["file:///...","file:///..."]'
+  galleryPhotos: text('gallery_photos'),
   createdAt: timestamp(),
 });
 
@@ -135,6 +142,25 @@ export const boostDefinitions = sqliteTable('boost_definitions', {
   sortOrder: integer('sort_order').default(0),
 });
 
+// ─── Testimonials ─────────────────────────────────────────────────────────────
+export const testimonials = sqliteTable('testimonials', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  sitterId: integer('sitter_id').references(() => users.id).notNull(),
+  ownerName: text('owner_name').notNull(),
+  ownerEmail: text('owner_email'),
+  // e.g. "London, summer 2024" or "Looking after their two dogs"
+  sitDescription: text('sit_description'),
+  // The actual testimonial text — null while pending
+  body: text(),
+  // 1–5
+  rating: integer(),
+  // 'pending' | 'published'
+  status: text().notNull().default('pending'),
+  // Random token used in the shareable request link
+  requestToken: text('request_token'),
+  createdAt: timestamp(),
+});
+
 // ─── Auth Sessions ────────────────────────────────────────────────────────────
 export const authSessions = sqliteTable('auth_sessions', {
   id: integer().primaryKey(),
@@ -151,3 +177,4 @@ export type PhotoRequest = typeof photoRequests.$inferSelect;
 export type Photo = typeof photos.$inferSelect;
 export type Boost = typeof boosts.$inferSelect;
 export type BoostDefinition = typeof boostDefinitions.$inferSelect;
+export type Testimonial = typeof testimonials.$inferSelect;

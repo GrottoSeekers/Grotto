@@ -24,24 +24,24 @@ export default function SignUpScreen() {
   const { setUser } = useSessionStore();
 
   const [role, setRole] = useState<AuthRole | null>(null);
+  const [firstName, setFirstName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const canSubmit = useMemo(() => !!role && email.trim().length > 0 && password.length > 0 && !isSubmitting, [
-    role,
-    email,
-    password,
-    isSubmitting,
-  ]);
+  const canSubmit = useMemo(
+    () => !!role && firstName.trim().length > 0 && email.trim().length > 0 && password.length > 0 && !isSubmitting,
+    [role, firstName, email, password, isSubmitting],
+  );
 
   async function handleSubmit() {
     if (!role) return;
     setError(null);
     setIsSubmitting(true);
     try {
-      const user = await signUpDb({ role, email, password });
+      const user = await signUpDb({ role, firstName, email, password });
       setUser(user);
       router.replace('/profile');
     } catch (e) {
@@ -82,6 +82,19 @@ export default function SignUpScreen() {
 
         {role && (
           <View style={styles.form}>
+            <Field label="First name">
+              <TextInput
+                value={firstName}
+                onChangeText={setFirstName}
+                autoCapitalize="words"
+                autoCorrect={false}
+                placeholder="Your first name"
+                placeholderTextColor={GrottoTokens.textMuted}
+                style={styles.input}
+                returnKeyType="next"
+              />
+            </Field>
+
             <Field label="Email">
               <TextInput
                 value={email}
@@ -97,16 +110,25 @@ export default function SignUpScreen() {
             </Field>
 
             <Field label="Password">
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                placeholder="At least 6 characters"
-                placeholderTextColor={GrottoTokens.textMuted}
-                style={styles.input}
-                returnKeyType="done"
-                onSubmitEditing={handleSubmit}
-              />
+              <View style={styles.passwordRow}>
+                <TextInput
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  placeholder="At least 6 characters"
+                  placeholderTextColor={GrottoTokens.textMuted}
+                  style={[styles.input, styles.passwordInput]}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSubmit}
+                />
+                <Pressable
+                  style={styles.showToggle}
+                  onPress={() => setShowPassword((v) => !v)}
+                  hitSlop={8}
+                >
+                  <Text style={styles.showToggleText}>{showPassword ? 'Hide' : 'Show'}</Text>
+                </Pressable>
+              </View>
             </Field>
 
             {error && <Text style={styles.error} selectable>{error}</Text>}
@@ -289,6 +311,24 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.sansRegular,
     fontSize: 15,
     color: GrottoTokens.textPrimary,
+  },
+  passwordRow: {
+    position: 'relative',
+  },
+  passwordInput: {
+    paddingRight: 60,
+  },
+  showToggle: {
+    position: 'absolute',
+    right: Layout.spacing.md,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
+  showToggleText: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 13,
+    color: GrottoTokens.gold,
   },
   submit: {
     marginTop: Layout.spacing.sm,
