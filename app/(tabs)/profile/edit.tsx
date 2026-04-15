@@ -171,25 +171,26 @@ function PhotoCell({
       <GestureDetector gesture={gesture}>
         <Animated.View style={[StyleSheet.absoluteFillObject, styles.thumbInner, animStyle]}>
           <Image source={{ uri }} style={styles.thumb} contentFit="cover" />
-          {/* Crop hint overlay — only shown when not dragging */}
           {!isAnyDragging && (
             <View style={styles.thumbCropHint}>
               <Ionicons name="crop-outline" size={13} color="rgba(255,255,255,0.9)" />
             </View>
           )}
-          {!isAnyDragging && (
-            <Pressable
-              style={styles.thumbRemove}
-              onPress={onRemove}
-              hitSlop={4}
-            >
-              <View style={styles.removeCircle}>
-                <Ionicons name="close" size={12} color={GrottoTokens.white} />
-              </View>
-            </Pressable>
-          )}
         </Animated.View>
       </GestureDetector>
+
+      {/* X button sits outside the GestureDetector so tapping it doesn't fire the crop tap */}
+      {!isAnyDragging && (
+        <Pressable
+          style={styles.thumbRemove}
+          onPress={onRemove}
+          hitSlop={8}
+        >
+          <View style={styles.removeCircle}>
+            <Ionicons name="close" size={12} color={GrottoTokens.white} />
+          </View>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -200,14 +201,17 @@ function PhotoCell({
 function CropModal({
   visible,
   imageUri,
+  aspect = [4, 3],
   onCrop,
   onCancel,
 }: {
   visible: boolean;
   imageUri: string | null;
+  aspect?: [number, number];
   onCrop: (uri: string) => void;
   onCancel: () => void;
 }) {
+  const frameH = Math.round(CROP_FRAME_W * aspect[1] / aspect[0]);
   const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
   const [applying, setApplying] = useState(false);
 
@@ -240,10 +244,10 @@ function CropModal({
 
   // Scale to cover the crop frame (like contentFit="cover")
   const fitScale = imgSize
-    ? Math.max(CROP_FRAME_W / imgSize.w, CROP_FRAME_H / imgSize.h)
+    ? Math.max(CROP_FRAME_W / imgSize.w, frameH / imgSize.h)
     : 1;
   const displayW = imgSize ? Math.round(imgSize.w * fitScale) : CROP_FRAME_W;
-  const displayH = imgSize ? Math.round(imgSize.h * fitScale) : CROP_FRAME_H;
+  const displayH = imgSize ? Math.round(imgSize.h * fitScale) : frameH;
 
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
@@ -283,9 +287,9 @@ function CropModal({
 
       // Map from screen-space pan/scale back to original image pixel coordinates
       let originX = imgSize.w / 2 - CROP_FRAME_W / (2 * totalScale) - tx / totalScale;
-      let originY = imgSize.h / 2 - CROP_FRAME_H / (2 * totalScale) - ty / totalScale;
+      let originY = imgSize.h / 2 - frameH / (2 * totalScale) - ty / totalScale;
       let cropW = CROP_FRAME_W / totalScale;
-      let cropH = CROP_FRAME_H / totalScale;
+      let cropH = frameH / totalScale;
 
       // Clamp to image bounds
       originX = Math.round(Math.max(0, Math.min(imgSize.w - cropW, originX)));
@@ -335,7 +339,7 @@ function CropModal({
         {/* ── Crop frame ── */}
         <View style={cropStyles.frameWrap}>
           {imgSize ? (
-            <View style={[cropStyles.frame, { width: CROP_FRAME_W, height: CROP_FRAME_H }]}>
+            <View style={[cropStyles.frame, { width: CROP_FRAME_W, height: frameH }]}>
               <GestureDetector gesture={composed}>
                 <Animated.View
                   style={[
@@ -344,7 +348,7 @@ function CropModal({
                       height: displayH,
                       position: 'absolute',
                       left: (CROP_FRAME_W - displayW) / 2,
-                      top: (CROP_FRAME_H - displayH) / 2,
+                      top: (frameH - displayH) / 2,
                     },
                     imageAnimStyle,
                   ]}
@@ -364,7 +368,7 @@ function CropModal({
               <View style={[cropStyles.corner, cropStyles.cornerBR]} pointerEvents="none" />
             </View>
           ) : (
-            <View style={[cropStyles.frame, cropStyles.frameLoading, { width: CROP_FRAME_W, height: CROP_FRAME_H }]}>
+            <View style={[cropStyles.frame, cropStyles.frameLoading, { width: CROP_FRAME_W, height: frameH }]}>
               <ActivityIndicator color={GrottoTokens.gold} size="large" />
             </View>
           )}
@@ -395,6 +399,7 @@ export default function EditProfileScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [cropUri, setCropUri] = useState<string | null>(null);
   const [cropTargetIdx, setCropTargetIdx] = useState<number | null>(null);
+  const [avatarCropUri, setAvatarCropUri] = useState<string | null>(null);
 
   // ── Drag state ──
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
@@ -462,15 +467,20 @@ export default function EditProfileScreen() {
   }
 
   async function pickAvatar() {
+    if (avatarUri) {
+      // Already has a photo — open the crop tool on it directly
+      setAvatarCropUri(avatarUri);
+      return;
+    }
+    // No photo yet — pick from library first, then crop
     if (!(await requestPermission())) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.85,
+      allowsEditing: false,
+      quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
-      setAvatarUri(result.assets[0].uri);
+      setAvatarCropUri(result.assets[0].uri);
     }
   }
 
@@ -569,7 +579,7 @@ export default function EditProfileScreen() {
 
             <View style={styles.avatarMeta}>
               <Text style={styles.avatarMetaTitle}>
-                {avatarUri ? 'Tap to change' : 'Add a profile photo'}
+                {avatarUri ? 'Tap to crop or change' : 'Add a profile photo'}
               </Text>
               <Text style={styles.avatarMetaBody}>
                 A clear photo of your face helps owners feel comfortable choosing you.
@@ -747,9 +757,11 @@ export default function EditProfileScreen() {
         </Pressable>
       </ScrollView>
 
+      {/* Gallery photo crop (4:3) */}
       <CropModal
         visible={cropUri !== null}
         imageUri={cropUri}
+        aspect={[4, 3]}
         onCrop={(uri) => {
           if (cropTargetIdx !== null) {
             setGallery((prev) => {
@@ -765,6 +777,18 @@ export default function EditProfileScreen() {
           setCropUri(null);
           setCropTargetIdx(null);
         }}
+      />
+
+      {/* Avatar crop (1:1) */}
+      <CropModal
+        visible={avatarCropUri !== null}
+        imageUri={avatarCropUri}
+        aspect={[1, 1]}
+        onCrop={(uri) => {
+          setAvatarUri(uri);
+          setAvatarCropUri(null);
+        }}
+        onCancel={() => setAvatarCropUri(null)}
       />
     </KeyboardAvoidingView>
   );
