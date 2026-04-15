@@ -1,8 +1,10 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -11,6 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -40,6 +43,10 @@ const SCREEN_W = Dimensions.get('window').width;
 // Section has padding md (16) on each side, outer scroll has padding md (16) on each side
 const GRID_W = SCREEN_W - Layout.spacing.md * 4;
 const GALLERY_THUMB = (GRID_W - GAP * (COLS - 1)) / COLS;
+
+// Crop modal — 4:3 frame, full-bleed width
+const CROP_FRAME_W = SCREEN_W - Layout.spacing.md * 2;
+const CROP_FRAME_H = Math.round(CROP_FRAME_W * (3 / 4));
 
 const PET_OPTIONS = [
   { key: 'dogs', label: 'Dogs' },
@@ -187,6 +194,186 @@ function PhotoCell({
   );
 }
 
+// ─── CropModal ────────────────────────────────────────────────────────────────
+// Full-screen crop tool for an existing photo URI.
+// Pinch to zoom, drag to reposition; no library re-pick needed.
+function CropModal({
+  visible,
+  imageUri,
+  onCrop,
+  onCancel,
+}: {
+  visible: boolean;
+  imageUri: string | null;
+  onCrop: (uri: string) => void;
+  onCancel: () => void;
+}) {
+  const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
+  const [applying, setApplying] = useState(false);
+
+  // Reanimated shared values for pan and scale
+  const panX = useSharedValue(0);
+  const panY = useSharedValue(0);
+  const savedPanX = useSharedValue(0);
+  const savedPanY = useSharedValue(0);
+  const userScale = useSharedValue(1);
+  const savedUserScale = useSharedValue(1);
+
+  // Reset and load image dimensions whenever the modal opens with a new URI
+  useEffect(() => {
+    if (!imageUri || !visible) return;
+    setImgSize(null);
+    setApplying(false);
+    panX.value = 0;
+    panY.value = 0;
+    savedPanX.value = 0;
+    savedPanY.value = 0;
+    userScale.value = 1;
+    savedUserScale.value = 1;
+
+    // Use a no-op manipulate call to get the original image dimensions
+    manipulateAsync(imageUri, [])
+      .then((r) => setImgSize({ w: r.width, h: r.height }))
+      .catch(console.error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageUri, visible]);
+
+  // Scale to cover the crop frame (like contentFit="cover")
+  const fitScale = imgSize
+    ? Math.max(CROP_FRAME_W / imgSize.w, CROP_FRAME_H / imgSize.h)
+    : 1;
+  const displayW = imgSize ? Math.round(imgSize.w * fitScale) : CROP_FRAME_W;
+  const displayH = imgSize ? Math.round(imgSize.h * fitScale) : CROP_FRAME_H;
+
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      panX.value = savedPanX.value + e.translationX;
+      panY.value = savedPanY.value + e.translationY;
+    })
+    .onEnd(() => {
+      savedPanX.value = panX.value;
+      savedPanY.value = panY.value;
+    });
+
+  const pinchGesture = Gesture.Pinch()
+    .onUpdate((e) => {
+      userScale.value = Math.max(1, savedUserScale.value * e.scale);
+    })
+    .onEnd(() => {
+      savedUserScale.value = userScale.value;
+    });
+
+  const composed = Gesture.Simultaneous(panGesture, pinchGesture);
+
+  const imageAnimStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: panX.value },
+      { translateY: panY.value },
+      { scale: userScale.value },
+    ],
+  }));
+
+  async function handleDone() {
+    if (!imageUri || !imgSize) return;
+    setApplying(true);
+    try {
+      const totalScale = fitScale * userScale.value;
+      const tx = panX.value;
+      const ty = panY.value;
+
+      // Map from screen-space pan/scale back to original image pixel coordinates
+      let originX = imgSize.w / 2 - CROP_FRAME_W / (2 * totalScale) - tx / totalScale;
+      let originY = imgSize.h / 2 - CROP_FRAME_H / (2 * totalScale) - ty / totalScale;
+      let cropW = CROP_FRAME_W / totalScale;
+      let cropH = CROP_FRAME_H / totalScale;
+
+      // Clamp to image bounds
+      originX = Math.round(Math.max(0, Math.min(imgSize.w - cropW, originX)));
+      originY = Math.round(Math.max(0, Math.min(imgSize.h - cropH, originY)));
+      cropW = Math.round(Math.min(cropW, imgSize.w - originX));
+      cropH = Math.round(Math.min(cropH, imgSize.h - originY));
+
+      const result = await manipulateAsync(
+        imageUri,
+        [{ crop: { originX, originY, width: cropW, height: cropH } }],
+        { compress: 0.85, format: SaveFormat.JPEG },
+      );
+      onCrop(result.uri);
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Error', 'Could not apply crop. Please try again.');
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  const headerPaddingTop = Platform.OS === 'ios' ? 56 : 32;
+
+  return (
+    <Modal visible={visible} animationType="fade" statusBarTranslucent>
+      <View style={cropStyles.bg}>
+        {/* ── Header ── */}
+        <View style={[cropStyles.header, { paddingTop: headerPaddingTop }]}>
+          <Pressable onPress={onCancel} hitSlop={16} style={cropStyles.headerSideBtn}>
+            <Text style={cropStyles.cancelText}>Cancel</Text>
+          </Pressable>
+          <Text style={cropStyles.headerTitle}>Crop photo</Text>
+          <Pressable
+            onPress={handleDone}
+            disabled={!imgSize || applying}
+            hitSlop={16}
+            style={cropStyles.headerSideBtn}
+          >
+            <Text style={[cropStyles.doneText, (!imgSize || applying) && cropStyles.doneTextDisabled]}>
+              {applying ? 'Saving…' : 'Done'}
+            </Text>
+          </Pressable>
+        </View>
+
+        <Text style={cropStyles.hint}>Pinch to zoom · drag to reposition</Text>
+
+        {/* ── Crop frame ── */}
+        <View style={cropStyles.frameWrap}>
+          {imgSize ? (
+            <View style={[cropStyles.frame, { width: CROP_FRAME_W, height: CROP_FRAME_H }]}>
+              <GestureDetector gesture={composed}>
+                <Animated.View
+                  style={[
+                    {
+                      width: displayW,
+                      height: displayH,
+                      position: 'absolute',
+                      left: (CROP_FRAME_W - displayW) / 2,
+                      top: (CROP_FRAME_H - displayH) / 2,
+                    },
+                    imageAnimStyle,
+                  ]}
+                >
+                  <Image
+                    source={{ uri: imageUri! }}
+                    style={{ width: displayW, height: displayH }}
+                    contentFit="fill"
+                  />
+                </Animated.View>
+              </GestureDetector>
+
+              {/* Gold corner guides */}
+              <View style={[cropStyles.corner, cropStyles.cornerTL]} pointerEvents="none" />
+              <View style={[cropStyles.corner, cropStyles.cornerTR]} pointerEvents="none" />
+              <View style={[cropStyles.corner, cropStyles.cornerBL]} pointerEvents="none" />
+              <View style={[cropStyles.corner, cropStyles.cornerBR]} pointerEvents="none" />
+            </View>
+          ) : (
+            <View style={[cropStyles.frame, cropStyles.frameLoading, { width: CROP_FRAME_W, height: CROP_FRAME_H }]}>
+              <ActivityIndicator color={GrottoTokens.gold} size="large" />
+            </View>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── EditProfileScreen ────────────────────────────────────────────────────────
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -206,6 +393,8 @@ export default function EditProfileScreen() {
     parseJson<string[]>(currentUser?.galleryPhotos, []),
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [cropUri, setCropUri] = useState<string | null>(null);
+  const [cropTargetIdx, setCropTargetIdx] = useState<number | null>(null);
 
   // ── Drag state ──
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
@@ -299,23 +488,6 @@ export default function EditProfileScreen() {
     });
     if (!result.canceled && result.assets[0]) {
       setGallery((prev) => [...prev, result.assets[0]!.uri]);
-    }
-  }
-
-  async function reCropGalleryPhoto(index: number) {
-    if (!(await requestPermission())) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.85,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setGallery((prev) => {
-        const updated = [...prev];
-        updated[index] = result.assets[0]!.uri;
-        return updated;
-      });
     }
   }
 
@@ -436,7 +608,10 @@ export default function EditProfileScreen() {
                 onDragUpdate={handleDragUpdate}
                 onDragEnd={handleDragEnd}
                 onRemove={() => removeGalleryPhoto(i)}
-                onTap={() => reCropGalleryPhoto(i)}
+                onTap={() => {
+                  setCropUri(gallery[i] ?? null);
+                  setCropTargetIdx(i);
+                }}
               />
             ))}
 
@@ -571,6 +746,26 @@ export default function EditProfileScreen() {
           <Text style={styles.saveBtnText}>{isSaving ? 'Saving…' : 'Save profile'}</Text>
         </Pressable>
       </ScrollView>
+
+      <CropModal
+        visible={cropUri !== null}
+        imageUri={cropUri}
+        onCrop={(uri) => {
+          if (cropTargetIdx !== null) {
+            setGallery((prev) => {
+              const updated = [...prev];
+              updated[cropTargetIdx] = uri;
+              return updated;
+            });
+          }
+          setCropUri(null);
+          setCropTargetIdx(null);
+        }}
+        onCancel={() => {
+          setCropUri(null);
+          setCropTargetIdx(null);
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -861,5 +1056,99 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.88,
     transform: [{ scale: 0.985 }],
+  },
+});
+
+// ─── Crop modal styles ─────────────────────────────────────────────────────────
+const cropStyles = StyleSheet.create({
+  bg: {
+    flex: 1,
+    backgroundColor: '#111',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Layout.spacing.lg,
+    paddingBottom: Layout.spacing.md,
+  },
+  headerSideBtn: {
+    minWidth: 64,
+  },
+  headerTitle: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 16,
+    color: '#fff',
+  },
+  cancelText: {
+    fontFamily: FontFamily.sansRegular,
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  doneText: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 16,
+    color: GrottoTokens.gold,
+    textAlign: 'right',
+  },
+  doneTextDisabled: {
+    opacity: 0.35,
+  },
+  hint: {
+    fontFamily: FontFamily.sansRegular,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.4)',
+    textAlign: 'center',
+    marginBottom: Layout.spacing.xl,
+  },
+  frameWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: Layout.spacing.xxl,
+  },
+  frame: {
+    overflow: 'hidden',
+    backgroundColor: '#000',
+    borderRadius: Layout.radius.md,
+  },
+  frameLoading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Gold crop-guide corners
+  corner: {
+    position: 'absolute',
+    width: 22,
+    height: 22,
+  },
+  cornerTL: {
+    top: 0,
+    left: 0,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+    borderColor: GrottoTokens.gold,
+  },
+  cornerTR: {
+    top: 0,
+    right: 0,
+    borderTopWidth: 3,
+    borderRightWidth: 3,
+    borderColor: GrottoTokens.gold,
+  },
+  cornerBL: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3,
+    borderColor: GrottoTokens.gold,
+  },
+  cornerBR: {
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
+    borderColor: GrottoTokens.gold,
   },
 });
