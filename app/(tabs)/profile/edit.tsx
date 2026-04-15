@@ -561,7 +561,11 @@ export default function EditProfileScreen() {
         {/* ── Profile photo ── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Profile photo</Text>
-          <Text style={styles.sectionHint}>This is the main photo owners see on your profile</Text>
+          <Text style={styles.sectionHint}>
+            {currentUser?.role === 'owner'
+              ? 'This is the main photo sitters see on your profile'
+              : 'This is the main photo owners see on your profile'}
+          </Text>
 
           <View style={styles.avatarRow}>
             <Pressable style={({ pressed }) => [styles.avatarWrap, pressed && styles.pressed]} onPress={pickAvatar}>
@@ -582,7 +586,9 @@ export default function EditProfileScreen() {
                 {avatarUri ? 'Tap to crop or change' : 'Add a profile photo'}
               </Text>
               <Text style={styles.avatarMetaBody}>
-                A clear photo of your face helps owners feel comfortable choosing you.
+                {currentUser?.role === 'owner'
+                  ? 'A clear photo helps sitters know who they\'ll be working with.'
+                  : 'A clear photo of your face helps owners feel comfortable choosing you.'}
               </Text>
               {avatarUri ? (
                 <Pressable onPress={() => setAvatarUri(null)}>
@@ -599,7 +605,9 @@ export default function EditProfileScreen() {
           <Text style={styles.sectionHint}>
             {gallery.length > 1
               ? 'Tap to crop · hold and drag to reorder · tap × to remove'
-              : `Add up to ${MAX_GALLERY} photos — your home, pets, travels`}
+              : currentUser?.role === 'owner'
+                ? `Add up to ${MAX_GALLERY} photos — your home, garden, pets`
+                : `Add up to ${MAX_GALLERY} photos — your home, pets, travels`}
           </Text>
 
           <View ref={gridRef} style={styles.galleryGrid}>
@@ -683,13 +691,20 @@ export default function EditProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About you</Text>
 
-          <Field label="Bio" hint="Tell owners a little about yourself">
+          <Field
+            label="Bio"
+            hint={currentUser?.role === 'owner' ? 'Tell sitters a little about yourself' : 'Tell owners a little about yourself'}
+          >
             <TextInput
               value={bio}
               onChangeText={setBio}
               multiline
               numberOfLines={4}
-              placeholder="Share who you are, your lifestyle, and what makes you a great sitter…"
+              placeholder={
+                currentUser?.role === 'owner'
+                  ? 'Share who you are, your home, and what you\'re looking for in a sitter…'
+                  : 'Share who you are, your lifestyle, and what makes you a great sitter…'
+              }
               placeholderTextColor={GrottoTokens.textMuted}
               style={[styles.input, styles.textArea]}
               returnKeyType="default"
@@ -697,22 +712,25 @@ export default function EditProfileScreen() {
             />
           </Field>
 
-          <Field label="Why I want to sit" hint="What draws you to house sitting?">
-            <TextInput
-              value={whyIWantToSit}
-              onChangeText={setWhyIWantToSit}
-              multiline
-              numberOfLines={4}
-              placeholder="I love animals and exploring new places…"
-              placeholderTextColor={GrottoTokens.textMuted}
-              style={[styles.input, styles.textArea]}
-              returnKeyType="default"
-              textAlignVertical="top"
-            />
-          </Field>
+          {currentUser?.role !== 'owner' ? (
+            <Field label="Why I want to sit" hint="What draws you to house sitting?">
+              <TextInput
+                value={whyIWantToSit}
+                onChangeText={setWhyIWantToSit}
+                multiline
+                numberOfLines={4}
+                placeholder="I love animals and exploring new places…"
+                placeholderTextColor={GrottoTokens.textMuted}
+                style={[styles.input, styles.textArea]}
+                returnKeyType="default"
+                textAlignVertical="top"
+              />
+            </Field>
+          ) : null}
         </View>
 
-        {/* ── Preferred pets ── */}
+        {/* ── Preferred pets (sitters only) ── */}
+        {currentUser?.role !== 'owner' ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Preferred pets</Text>
           <Text style={styles.sectionHint}>Select all the animals you're happy to care for</Text>
@@ -742,6 +760,7 @@ export default function EditProfileScreen() {
             })}
           </View>
         </View>
+        ) : null}
 
         {/* ── Save ── */}
         <Pressable

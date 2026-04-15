@@ -255,8 +255,8 @@ export default function ViewProfileScreen() {
         </View>
       ) : null}
 
-      {/* ── Why I want to sit ── */}
-      {currentUser.whyIWantToSit ? (
+      {/* ── Why I want to sit (sitters only) ── */}
+      {currentUser.role !== 'owner' && currentUser.whyIWantToSit ? (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Why I want to house sit</Text>
           <Text style={styles.cardBody} numberOfLines={whyExpanded ? undefined : 5}>
@@ -270,8 +270,8 @@ export default function ViewProfileScreen() {
         </View>
       ) : null}
 
-      {/* ── Preferred pets ── */}
-      {pets.length > 0 ? (
+      {/* ── Preferred pets (sitters only) ── */}
+      {currentUser.role !== 'owner' && pets.length > 0 ? (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Preferred pets</Text>
           <View style={styles.petsWrap}>
@@ -286,18 +286,29 @@ export default function ViewProfileScreen() {
       ) : null}
 
       {/* ── Empty state nudge ── */}
-      {!currentUser.bio && !currentUser.occupation && !currentUser.whyIWantToSit && pets.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Ionicons name="person-add-outline" size={32} color={GrottoTokens.goldMuted} />
-          <Text style={styles.emptyTitle}>Your profile is bare</Text>
-          <Text style={styles.emptyBody}>
-            Add a bio, photos, and more so owners know who they're welcoming into their home.
-          </Text>
-        </View>
-      ) : null}
+      {currentUser.role === 'owner'
+        ? (!currentUser.bio && !currentUser.occupation ? (
+          <View style={styles.emptyCard}>
+            <Ionicons name="home-outline" size={32} color={GrottoTokens.goldMuted} />
+            <Text style={styles.emptyTitle}>Your profile is bare</Text>
+            <Text style={styles.emptyBody}>
+              Add a bio and photos so sitters know who they'll be working with.
+            </Text>
+          </View>
+        ) : null)
+        : (!currentUser.bio && !currentUser.occupation && !currentUser.whyIWantToSit && pets.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Ionicons name="person-add-outline" size={32} color={GrottoTokens.goldMuted} />
+            <Text style={styles.emptyTitle}>Your profile is bare</Text>
+            <Text style={styles.emptyBody}>
+              Add a bio, photos, and more so owners know who they're welcoming into their home.
+            </Text>
+          </View>
+        ) : null)
+      }
 
-      {/* ── Testimonials ── */}
-      {publishedTestimonials.length > 0 ? (
+      {/* ── Testimonials (sitters only) ── */}
+      {currentUser.role !== 'owner' && publishedTestimonials.length > 0 ? (
         <View style={styles.card}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={styles.cardTitle}>Testimonials</Text>

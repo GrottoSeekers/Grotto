@@ -102,7 +102,7 @@ export default function ProfileIndexScreen() {
           <View style={styles.statsRow}>
             <View style={styles.stat}>
               <Text style={styles.statValue}>0</Text>
-              <Text style={styles.statLabel}>Sits</Text>
+              <Text style={styles.statLabel}>{currentUser.role === 'owner' ? 'Listings' : 'Sits'}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.stat}>
@@ -133,19 +133,23 @@ export default function ProfileIndexScreen() {
 
         {/* ── Menu ── */}
         <View style={styles.menuCard}>
-          <MenuRow
-            icon="eye-outline"
-            label="Preview profile"
-            sublabel="See how owners view your profile"
-            onPress={() => router.push('/profile/preview')}
-          />
-          <View style={styles.menuDivider} />
-          <MenuRow
-            icon="ribbon-outline"
-            label="Testimonials"
-            onPress={() => router.push('/profile/testimonials')}
-          />
-          <View style={styles.menuDivider} />
+          {currentUser.role === 'sitter' ? (
+            <>
+              <MenuRow
+                icon="eye-outline"
+                label="Preview profile"
+                sublabel="See how owners view your profile"
+                onPress={() => router.push('/profile/preview')}
+              />
+              <View style={styles.menuDivider} />
+              <MenuRow
+                icon="ribbon-outline"
+                label="Testimonials"
+                onPress={() => router.push('/profile/testimonials')}
+              />
+              <View style={styles.menuDivider} />
+            </>
+          ) : null}
           <MenuRow
             icon="settings-outline"
             label="Settings"

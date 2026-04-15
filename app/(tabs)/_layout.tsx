@@ -5,8 +5,12 @@ import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { GrottoTokens, FontFamily } from '@/constants/theme';
 import { Layout } from '@/constants/layout';
+import { useSessionStore } from '@/store/session-store';
 
 export default function TabLayout() {
+  const { currentUser } = useSessionStore();
+  const isOwner = currentUser?.role === 'owner';
+
   return (
     <Tabs
       screenOptions={{
@@ -44,7 +48,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'My Sits',
+          title: isOwner ? 'My Listings' : 'My Sits',
           tabBarIcon: ({ color }) => <IconSymbol size={24} name="calendar.badge.checkmark" color={color} />,
         }}
       />

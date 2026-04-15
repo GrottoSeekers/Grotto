@@ -634,6 +634,10 @@ const styles = StyleSheet.create({
     color: GrottoTokens.white,
     letterSpacing: 0.2,
   },
+  pressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.985 }],
+  },
 
   // ── Testimonials ──────────────────────────────────────────────────────────
   testimonialItem: {
