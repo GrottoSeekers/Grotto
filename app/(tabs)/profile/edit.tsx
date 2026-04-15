@@ -67,19 +67,21 @@ async function requestPermission() {
 
 // ─── PhotoCell ────────────────────────────────────────────────────────────────
 // A single draggable photo thumbnail in the grid.
+// Tap = re-crop/replace · long-press + drag = reorder · X = remove.
 function PhotoCell({
   uri,
   idx,
-  activeDragIdx,   // shared value: index of photo currently being dragged (-1 = none)
-  activeTX,        // shared value: translateX of dragging photo
-  activeTY,        // shared value: translateY of dragging photo
-  activeScale,     // shared value: scale of dragging photo
-  draggingIdx,     // JS state: same as activeDragIdx but readable on JS thread
-  hoverIdx,        // JS state: which slot the drag is currently hovering over
+  activeDragIdx,
+  activeTX,
+  activeTY,
+  activeScale,
+  draggingIdx,
+  hoverIdx,
   onDragStart,
   onDragUpdate,
   onDragEnd,
   onRemove,
+  onTap,
 }: {
   uri: string;
   idx: number;
@@ -93,12 +95,12 @@ function PhotoCell({
   onDragUpdate: (absX: number, absY: number) => void;
   onDragEnd: () => void;
   onRemove: () => void;
+  onTap: () => void;
 }) {
   const isThisDragging = draggingIdx === idx;
   const isHovered = hoverIdx === idx && draggingIdx !== null && draggingIdx !== idx;
   const isAnyDragging = draggingIdx !== null;
 
-  // Animated style: only the active cell gets transforms applied
   const animStyle = useAnimatedStyle(() => {
     const active = activeDragIdx.value === idx;
     return {
@@ -114,8 +116,11 @@ function PhotoCell({
   });
 
   const gesture = useMemo(
-    () =>
-      Gesture.Pan()
+    () => {
+      const tap = Gesture.Tap()
+        .onEnd(() => { runOnJS(onTap)(); });
+
+      const pan = Gesture.Pan()
         .activateAfterLongPress(400)
         .onStart((e) => {
           activeTX.value = 0;
@@ -137,14 +142,17 @@ function PhotoCell({
           activeScale.value = withSpring(1, { damping: 15 });
           activeDragIdx.value = -1;
           runOnJS(onDragEnd)();
-        }),
+        });
+
+      // Tap fires on a short press; Pan takes over on a long press.
+      return Gesture.Exclusive(tap, pan);
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [idx],
+    [idx, onTap],
   );
 
   return (
     <View style={styles.thumbSlot}>
-      {/* Ghost slot — visible through the lifted photo */}
       <View
         style={[
           styles.ghostSlot,
@@ -153,10 +161,15 @@ function PhotoCell({
         ]}
       />
 
-      {/* The actual photo, lifted and dragged */}
       <GestureDetector gesture={gesture}>
         <Animated.View style={[StyleSheet.absoluteFillObject, styles.thumbInner, animStyle]}>
           <Image source={{ uri }} style={styles.thumb} contentFit="cover" />
+          {/* Crop hint overlay — only shown when not dragging */}
+          {!isAnyDragging && (
+            <View style={styles.thumbCropHint}>
+              <Ionicons name="crop-outline" size={13} color="rgba(255,255,255,0.9)" />
+            </View>
+          )}
           {!isAnyDragging && (
             <Pressable
               style={styles.thumbRemove}
@@ -289,6 +302,23 @@ export default function EditProfileScreen() {
     }
   }
 
+  async function reCropGalleryPhoto(index: number) {
+    if (!(await requestPermission())) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.85,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setGallery((prev) => {
+        const updated = [...prev];
+        updated[index] = result.assets[0]!.uri;
+        return updated;
+      });
+    }
+  }
+
   function removeGalleryPhoto(index: number) {
     Alert.alert('Remove photo', 'Remove this photo from your gallery?', [
       { text: 'Cancel', style: 'cancel' },
@@ -386,7 +416,7 @@ export default function EditProfileScreen() {
           <Text style={styles.sectionTitle}>Gallery photos</Text>
           <Text style={styles.sectionHint}>
             {gallery.length > 1
-              ? 'Hold and drag to reorder · tap × to remove'
+              ? 'Tap to crop · hold and drag to reorder · tap × to remove'
               : `Add up to ${MAX_GALLERY} photos — your home, pets, travels`}
           </Text>
 
@@ -406,6 +436,7 @@ export default function EditProfileScreen() {
                 onDragUpdate={handleDragUpdate}
                 onDragEnd={handleDragEnd}
                 onRemove={() => removeGalleryPhoto(i)}
+                onTap={() => reCropGalleryPhoto(i)}
               />
             ))}
 
@@ -709,6 +740,14 @@ const styles = StyleSheet.create({
   thumb: {
     width: '100%',
     height: '100%',
+  },
+  thumbCropHint: {
+    position: 'absolute',
+    bottom: 5,
+    left: 5,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderRadius: Layout.radius.sm,
+    padding: 3,
   },
   thumbRemove: {
     position: 'absolute',

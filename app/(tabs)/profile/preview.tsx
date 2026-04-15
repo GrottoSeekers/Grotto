@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { eq, desc } from 'drizzle-orm';
 
 import { GrottoTokens, FontFamily } from '@/constants/theme';
@@ -70,6 +70,7 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 export default function PreviewProfileScreen() {
+  const router = useRouter();
   const { currentUser } = useSessionStore();
 
   const [bioExpanded, setBioExpanded] = useState(false);
@@ -292,6 +293,15 @@ export default function PreviewProfileScreen() {
           </Text>
         </View>
       ) : null}
+
+      {/* ── Edit button ── */}
+      <Pressable
+        style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
+        onPress={() => router.push('/profile/edit')}
+      >
+        <Ionicons name="create-outline" size={18} color={GrottoTokens.white} />
+        <Text style={styles.editBtnText}>Edit profile</Text>
+      </Pressable>
 
       {/* ── Testimonials (read-only) ── */}
       {publishedTestimonials.length > 0 ? (
@@ -605,6 +615,24 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: GrottoTokens.textSecondary,
     textAlign: 'center',
+  },
+
+  // ── Edit button ───────────────────────────────────────────────────────────
+  editBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Layout.spacing.sm,
+    backgroundColor: GrottoTokens.textPrimary,
+    borderRadius: Layout.radius.full,
+    paddingVertical: 16,
+    boxShadow: `0 8px 20px rgba(0,0,0,0.18)`,
+  },
+  editBtnText: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    color: GrottoTokens.white,
+    letterSpacing: 0.2,
   },
 
   // ── Testimonials ──────────────────────────────────────────────────────────
