@@ -21,7 +21,7 @@ import { testimonials } from '@/db/schema';
 import { supabase } from '@/lib/supabase';
 
 const FORM_BASE_URL =
-  'https://ndxojbukvqjuhvqjuuwm.supabase.co/storage/v1/object/public/web/testimonial.html';
+  'https://grottoseekers.github.io/Grotto/testimonial.html';
 
 function generateToken(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
