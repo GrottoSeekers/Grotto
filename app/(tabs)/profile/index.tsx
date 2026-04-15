@@ -134,6 +134,13 @@ export default function ProfileIndexScreen() {
         {/* ── Menu ── */}
         <View style={styles.menuCard}>
           <MenuRow
+            icon="eye-outline"
+            label="Preview profile"
+            sublabel="See how owners view your profile"
+            onPress={() => router.push('/profile/preview')}
+          />
+          <View style={styles.menuDivider} />
+          <MenuRow
             icon="ribbon-outline"
             label="Testimonials"
             onPress={() => router.push('/profile/testimonials')}
@@ -205,10 +212,12 @@ export default function ProfileIndexScreen() {
 function MenuRow({
   icon,
   label,
+  sublabel,
   onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
+  sublabel?: string;
   onPress: () => void;
 }) {
   return (
@@ -219,7 +228,10 @@ function MenuRow({
       <View style={styles.menuIconWrap}>
         <Ionicons name={icon} size={20} color={GrottoTokens.textSecondary} />
       </View>
-      <Text style={styles.menuLabel}>{label}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.menuLabel}>{label}</Text>
+        {sublabel ? <Text style={styles.menuSublabel}>{sublabel}</Text> : null}
+      </View>
       <Ionicons name="chevron-forward" size={16} color={GrottoTokens.textMuted} />
     </Pressable>
   );
@@ -397,10 +409,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   menuLabel: {
-    flex: 1,
     fontFamily: FontFamily.sansMedium,
     fontSize: 15,
     color: GrottoTokens.textPrimary,
+  },
+  menuSublabel: {
+    fontFamily: FontFamily.sansRegular,
+    fontSize: 12,
+    color: GrottoTokens.textMuted,
+    marginTop: 1,
   },
   menuDivider: {
     height: 1,

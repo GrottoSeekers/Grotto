@@ -57,6 +57,13 @@ export default function ProfileLayout() {
           headerTintColor: GrottoTokens.textPrimary,
         }}
       />
+      <Stack.Screen
+        name="preview"
+        options={{
+          title: 'Profile preview',
+          headerTintColor: GrottoTokens.textPrimary,
+        }}
+      />
     </Stack>
   );
 }
