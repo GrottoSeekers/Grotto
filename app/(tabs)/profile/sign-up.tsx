@@ -18,6 +18,7 @@ import { Layout } from '@/constants/layout';
 import type { AuthRole } from '@/lib/auth';
 import { signUpDb } from '@/lib/auth';
 import { useSessionStore } from '@/store/session-store';
+import GrottoLogo from '@/components/GrottoLogo';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -58,6 +59,9 @@ export default function SignUpScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
       >
+        <View style={styles.logoWrap}>
+          <GrottoLogo size={48} variant="light" mark="house" />
+        </View>
         <Text style={styles.heading} selectable>Create your account</Text>
         <Text style={styles.subheading} selectable>
           First choose whether you’re joining as a sitter or an owner.
@@ -210,6 +214,11 @@ const styles = StyleSheet.create({
     padding: Layout.spacing.md,
     paddingBottom: Layout.spacing.xxl,
     gap: Layout.spacing.md,
+  },
+  logoWrap: {
+    alignItems: 'center',
+    paddingTop: Layout.spacing.md,
+    paddingBottom: Layout.spacing.xs,
   },
   heading: {
     fontFamily: FontFamily.serifBold,

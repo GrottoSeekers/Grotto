@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+  <!-- Concept A: The Arch — clean grotto entrance, single silhouette -->
+  <rect width="500" height="500" fill="#1A1713"/>
+
+  <!-- Outer arch body -->
+  <path d="M 100 400 L 100 230 Q 100 80 250 80 Q 400 80 400 230 L 400 400 Z" fill="#C9A84C"/>
+
+  <!-- Inner cutout (the grotto opening) -->
+  <path d="M 145 400 L 145 248 Q 145 125 250 125 Q 355 125 355 248 L 355 400 Z" fill="#1A1713"/>
+
+  <!-- Ground line -->
+  <rect x="80" y="398" width="340" height="8" rx="4" fill="#C9A84C"/>
+</svg>

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+  <!-- Concept C: Depth / Layered Arches — looking into a grotto, sense of shelter and depth -->
+  <rect width="500" height="500" fill="#1A1713"/>
+
+  <!-- Outer arch — darkest gold -->
+  <path d="M 60 440 L 60 230 Q 60 55 250 55 Q 440 55 440 230 L 440 440 Z" fill="#8B6E30"/>
+
+  <!-- Mid arch -->
+  <path d="M 105 440 L 105 248 Q 105 100 250 100 Q 395 100 395 248 L 395 440 Z" fill="#A8893C"/>
+
+  <!-- Inner arch -->
+  <path d="M 152 440 L 152 268 Q 152 148 250 148 Q 348 148 348 268 L 348 440 Z" fill="#C9A84C"/>
+
+  <!-- Innermost — warm glow at the heart of the grotto -->
+  <path d="M 198 440 L 198 288 Q 198 198 250 198 Q 302 198 302 288 L 302 440 Z" fill="#E8C97A"/>
+
+  <!-- Core light -->
+  <path d="M 222 440 L 222 305 Q 222 240 250 240 Q 278 240 278 305 L 278 440 Z" fill="#FAF0D0"/>
+</svg>

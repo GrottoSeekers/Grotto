@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Grotto Logo Concepts</title>
+  <style>
+    body { background: #2a2520; margin: 0; padding: 48px; font-family: -apple-system, sans-serif; }
+    h1   { color: #C9A84C; font-size: 13px; letter-spacing: .15em; text-transform: uppercase; margin-bottom: 8px; }
+    p    { color: #666; font-size: 12px; margin-bottom: 40px; }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; margin-bottom: 56px; }
+    .card { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .card span { color: #777; font-size: 11px; letter-spacing: .05em; }
+  </style>
+</head>
+<body>
+
+<h1>Grotto — Logo Concepts</h1>
+<p>Mountain silhouette with arch opening. Pick A, B, C or D.</p>
+
+<!--
+  TECHNIQUE: 3 layers per logo
+    1. Mountain filled (gold)
+    2. Arch painted back in bg colour  ← reliable in all browsers
+    3. Mark drawn in same gold
+
+  Mountain: bezier dome  peak=(50,8)  base y=92
+  Arch:     centre=(50,72) r=16  →  crown y=56  spring x=34..66
+-->
+
+<div class="grid">
+
+  <!-- ── A  HOUSE ─────────────────────────────────────────────── -->
+  <div class="card">
+    <svg width="160" height="160" viewBox="0 0 100 100">
+      <!-- 1. mountain -->
+      <path fill="#C9A84C"
+        d="M 2,92 C 2,78 6,56 14,44 C 22,32 32,14 50,8 C 68,14 78,32 86,44 C 94,56 98,78 98,92 Z"/>
+      <!-- 2. arch hole -->
+      <path fill="#2a2520"
+        d="M 34,92 L 34,72 A 16,16 0 0,0 66,72 L 66,92 Z"/>
+      <!-- 3. house: roof + walls + arched door -->
+      <path fill="#C9A84C"
+        d="M 40,73 L 50,62 L 60,73
+           L 57,73 L 57,84
+           L 53,84 L 53,78 A 3,3 0 0,0 47,78 L 47,84
+           L 43,84 L 43,73 Z"/>
+    </svg>
+    <span>A — House</span>
+  </div>
+
+  <!-- ── B  HEART ─────────────────────────────────────────────── -->
+  <div class="card">
+    <svg width="160" height="160" viewBox="0 0 100 100">
+      <path fill="#C9A84C"
+        d="M 2,92 C 2,78 6,56 14,44 C 22,32 32,14 50,8 C 68,14 78,32 86,44 C 94,56 98,78 98,92 Z"/>
+      <path fill="#2a2520"
+        d="M 34,92 L 34,72 A 16,16 0 0,0 66,72 L 66,92 Z"/>
+      <!-- heart -->
+      <path fill="#C9A84C"
+        d="M 50,81
+           C 44,77 34,69 36,61
+           C 38,55 45,53 50,61
+           C 55,53 62,55 64,61
+           C 66,69 56,77 50,81 Z"/>
+    </svg>
+    <span>B — Heart</span>
+  </div>
+
+  <!-- ── C  PAW ────────────────────────────────────────────────── -->
+  <div class="card">
+    <svg width="160" height="160" viewBox="0 0 100 100">
+      <path fill="#C9A84C"
+        d="M 2,92 C 2,78 6,56 14,44 C 22,32 32,14 50,8 C 68,14 78,32 86,44 C 94,56 98,78 98,92 Z"/>
+      <path fill="#2a2520"
+        d="M 34,92 L 34,72 A 16,16 0 0,0 66,72 L 66,92 Z"/>
+      <!-- 4 toes -->
+      <circle cx="40" cy="65" r="4"   fill="#C9A84C"/>
+      <circle cx="47" cy="60" r="4"   fill="#C9A84C"/>
+      <circle cx="53" cy="60" r="4"   fill="#C9A84C"/>
+      <circle cx="60" cy="65" r="4"   fill="#C9A84C"/>
+      <!-- main pad -->
+      <circle cx="50" cy="77" r="7"   fill="#C9A84C"/>
+    </svg>
+    <span>C — Paw</span>
+  </div>
+
+  <!-- ── D  ROOF + PAW ─────────────────────────────────────────── -->
+  <div class="card">
+    <svg width="160" height="160" viewBox="0 0 100 100">
+      <path fill="#C9A84C"
+        d="M 2,92 C 2,78 6,56 14,44 C 22,32 32,14 50,8 C 68,14 78,32 86,44 C 94,56 98,78 98,92 Z"/>
+      <path fill="#2a2520"
+        d="M 34,92 L 34,72 A 16,16 0 0,0 66,72 L 66,92 Z"/>
+      <!-- roof triangle only -->
+      <path fill="#C9A84C" d="M 40,70 L 50,60 L 60,70 Z"/>
+      <!-- paw below roof -->
+      <circle cx="40" cy="78" r="3.5" fill="#C9A84C"/>
+      <circle cx="47" cy="74" r="3.5" fill="#C9A84C"/>
+      <circle cx="53" cy="74" r="3.5" fill="#C9A84C"/>
+      <circle cx="60" cy="78" r="3.5" fill="#C9A84C"/>
+      <circle cx="50" cy="86" r="6"   fill="#C9A84C"/>
+    </svg>
+    <span>D — Roof + Paw</span>
+  </div>
+
+</div>
+
+<!-- ── Same four, light background ──────────────────────────────── -->
+<h1>On light background</h1>
+<div class="grid" style="background:#f5f0e8; padding:24px; border-radius:16px;">
+
+  <div class="card">
+    <svg width="160" height="160" viewBox="0 0 100 100">
+      <path fill="#1C1917"
+        d="M 2,92 C 2,78 6,56 14,44 C 22,32 32,14 50,8 C 68,14 78,32 86,44 C 94,56 98,78 98,92 Z"/>
+      <path fill="#f5f0e8"
+        d="M 34,92 L 34,72 A 16,16 0 0,0 66,72 L 66,92 Z"/>
+      <path fill="#1C1917"
+        d="M 40,73 L 50,62 L 60,73 L 57,73 L 57,84 L 53,84 L 53,78 A 3,3 0 0,0 47,78 L 47,84 L 43,84 L 43,73 Z"/>
+    </svg>
+    <span style="color:#999">A — House</span>
+  </div>
+
+  <div class="card">
+    <svg width="160" height="160" viewBox="0 0 100 100">
+      <path fill="#1C1917"
+        d="M 2,92 C 2,78 6,56 14,44 C 22,32 32,14 50,8 C 68,14 78,32 86,44 C 94,56 98,78 98,92 Z"/>
+      <path fill="#f5f0e8"
+        d="M 34,92 L 34,72 A 16,16 0 0,0 66,72 L 66,92 Z"/>
+      <path fill="#1C1917"
+        d="M 50,81 C 44,77 34,69 36,61 C 38,55 45,53 50,61 C 55,53 62,55 64,61 C 66,69 56,77 50,81 Z"/>
+    </svg>
+    <span style="color:#999">B — Heart</span>
+  </div>
+
+  <div class="card">
+    <svg width="160" height="160" viewBox="0 0 100 100">
+      <path fill="#1C1917"
+        d="M 2,92 C 2,78 6,56 14,44 C 22,32 32,14 50,8 C 68,14 78,32 86,44 C 94,56 98,78 98,92 Z"/>
+      <path fill="#f5f0e8"
+        d="M 34,92 L 34,72 A 16,16 0 0,0 66,72 L 66,92 Z"/>
+      <circle cx="40" cy="65" r="4"   fill="#1C1917"/>
+      <circle cx="47" cy="60" r="4"   fill="#1C1917"/>
+      <circle cx="53" cy="60" r="4"   fill="#1C1917"/>
+      <circle cx="60" cy="65" r="4"   fill="#1C1917"/>
+      <circle cx="50" cy="77" r="7"   fill="#1C1917"/>
+    </svg>
+    <span style="color:#999">C — Paw</span>
+  </div>
+
+  <div class="card">
+    <svg width="160" height="160" viewBox="0 0 100 100">
+      <path fill="#1C1917"
+        d="M 2,92 C 2,78 6,56 14,44 C 22,32 32,14 50,8 C 68,14 78,32 86,44 C 94,56 98,78 98,92 Z"/>
+      <path fill="#f5f0e8"
+        d="M 34,92 L 34,72 A 16,16 0 0,0 66,72 L 66,92 Z"/>
+      <path fill="#1C1917" d="M 40,70 L 50,60 L 60,70 Z"/>
+      <circle cx="40" cy="78" r="3.5" fill="#1C1917"/>
+      <circle cx="47" cy="74" r="3.5" fill="#1C1917"/>
+      <circle cx="53" cy="74" r="3.5" fill="#1C1917"/>
+      <circle cx="60" cy="78" r="3.5" fill="#1C1917"/>
+      <circle cx="50" cy="86" r="6"   fill="#1C1917"/>
+    </svg>
+    <span style="color:#999">D — Roof + Paw</span>
+  </div>
+
+</div>
+
+</body>
+</html>

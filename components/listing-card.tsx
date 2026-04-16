@@ -6,14 +6,20 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+function formatDateShort(dateStr: string): string {
+  const d = new Date(dateStr);
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+}
+
 interface ListingCardProps {
   listing: Listing;
   onPress: (listing: Listing) => void;
   hasBadge?: boolean;
+  nextSit?: { startDate: string; endDate: string } | null;
 }
 
 
-export function ListingCard({ listing, onPress, hasBadge = false }: ListingCardProps) {
+export function ListingCard({ listing, onPress, hasBadge = false, nextSit }: ListingCardProps) {
   const petTypes: string[] = listing.petTypes ? JSON.parse(listing.petTypes) : [];
 
   return (
@@ -55,6 +61,14 @@ export function ListingCard({ listing, onPress, hasBadge = false }: ListingCardP
               </View>
             )}
           </View>
+          {nextSit && (
+            <View style={styles.datesRow}>
+              <Ionicons name="calendar-outline" size={10} color="rgba(255,255,255,0.7)" />
+              <Text style={styles.datesText}>
+                {formatDateShort(nextSit.startDate)} – {formatDateShort(nextSit.endDate)}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
     </Pressable>
@@ -130,5 +144,16 @@ const styles = StyleSheet.create({
     color: GrottoTokens.goldMuted,
     fontSize: 11,
     fontFamily: FontFamily.sansMedium,
+  },
+  datesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 3,
+  },
+  datesText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 10,
+    fontFamily: FontFamily.sansRegular,
   },
 });

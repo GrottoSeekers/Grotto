@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+  <!-- Concept D: Pebble Keyhole — organic rounded stone with arch cutout. Clean, app-icon friendly -->
+  <rect width="500" height="500" fill="#FAF8F4"/>
+
+  <!-- Organic stone/pebble shape -->
+  <ellipse cx="250" cy="265" rx="190" ry="200" fill="#C9A84C"/>
+
+  <!-- Arch cutout — the grotto entrance -->
+  <path d="M 175 440 L 175 310 Q 175 200 250 200 Q 325 200 325 310 L 325 440 Z" fill="#FAF8F4"/>
+
+  <!-- Subtle inner shadow ring on arch -->
+  <path d="M 183 440 L 183 312 Q 183 213 250 213 Q 317 213 317 312 L 317 440 Z" fill="none" stroke="#A8893C" stroke-width="2" opacity="0.4"/>
+</svg>

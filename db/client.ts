@@ -21,6 +21,9 @@ try { raw.execSync('ALTER TABLE users ADD COLUMN location TEXT;'); } catch (_) {
 try { raw.execSync('ALTER TABLE users ADD COLUMN preferred_pets TEXT;'); } catch (_) {}
 try { raw.execSync('ALTER TABLE users ADD COLUMN why_i_want_to_sit TEXT;'); } catch (_) {}
 try { raw.execSync('ALTER TABLE users ADD COLUMN gallery_photos TEXT;'); } catch (_) {}
+try { raw.execSync('ALTER TABLE users ADD COLUMN occupation TEXT;'); } catch (_) {}
+try { raw.execSync('ALTER TABLE users ADD COLUMN location TEXT;'); } catch (_) {}
+try { raw.execSync('ALTER TABLE listings ADD COLUMN pet_photos TEXT;'); } catch (_) {}
 raw.execSync('CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users (email);');
 raw.execSync(`
   CREATE TABLE IF NOT EXISTS testimonials (
@@ -33,6 +36,38 @@ raw.execSync(`
     rating INTEGER,
     status TEXT NOT NULL DEFAULT 'pending',
     request_token TEXT,
+    "createdAt" TEXT DEFAULT (datetime('now'))
+  );
+`);
+
+raw.execSync(`
+  CREATE TABLE IF NOT EXISTS saved_lists (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    sitter_id INTEGER NOT NULL REFERENCES users(id),
+    name TEXT NOT NULL,
+    emoji TEXT DEFAULT '🏡',
+    "createdAt" TEXT DEFAULT (datetime('now'))
+  );
+`);
+raw.execSync(`
+  CREATE TABLE IF NOT EXISTS saved_list_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    list_id INTEGER NOT NULL REFERENCES saved_lists(id),
+    listing_id INTEGER NOT NULL REFERENCES listings(id),
+    "addedAt" TEXT DEFAULT (datetime('now')),
+    notes TEXT
+  );
+`);
+
+raw.execSync(`
+  CREATE TABLE IF NOT EXISTS reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    subject_id INTEGER NOT NULL REFERENCES users(id),
+    author_name TEXT NOT NULL,
+    author_avatar_url TEXT,
+    sit_description TEXT,
+    body TEXT NOT NULL,
+    rating INTEGER NOT NULL,
     "createdAt" TEXT DEFAULT (datetime('now'))
   );
 `);

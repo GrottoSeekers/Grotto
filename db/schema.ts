@@ -47,8 +47,10 @@ export const listings = sqliteTable('listings', {
   // JSON array string e.g. '["dog","cat"]'
   petTypes: text('pet_types'),
   coverPhotoUrl: text('cover_photo_url'),
-  // JSON array of URLs
+  // JSON array of house/stay photo URLs
   photos: text(),
+  // JSON array of { name, breed, age?, photoUrl? }
+  petPhotos: text('pet_photos'),
   isActive: integer('is_active').default(1),
   createdAt: timestamp(),
 });
@@ -161,6 +163,38 @@ export const testimonials = sqliteTable('testimonials', {
   createdAt: timestamp(),
 });
 
+// ─── Reviews ─────────────────────────────────────────────────────────────────
+export const reviews = sqliteTable('reviews', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  // The user being reviewed (owner or sitter)
+  subjectId: integer('subject_id').references(() => users.id).notNull(),
+  authorName: text('author_name').notNull(),
+  authorAvatarUrl: text('author_avatar_url'),
+  // e.g. "Kensington, London · May 2026"
+  sitDescription: text('sit_description'),
+  body: text().notNull(),
+  // 1–5
+  rating: integer().notNull(),
+  createdAt: timestamp(),
+});
+
+// ─── Saved Lists (sitter wishlists / collections) ─────────────────────────────
+export const savedLists = sqliteTable('saved_lists', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  sitterId: integer('sitter_id').references(() => users.id).notNull(),
+  name: text().notNull(),
+  emoji: text().default('🏡'),
+  createdAt: timestamp(),
+});
+
+export const savedListItems = sqliteTable('saved_list_items', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  listId: integer('list_id').references(() => savedLists.id).notNull(),
+  listingId: integer('listing_id').references(() => listings.id).notNull(),
+  addedAt: timestamp(),
+  notes: text(),
+});
+
 // ─── Auth Sessions ────────────────────────────────────────────────────────────
 export const authSessions = sqliteTable('auth_sessions', {
   id: integer().primaryKey(),
@@ -172,9 +206,12 @@ export const authSessions = sqliteTable('auth_sessions', {
 export type User = typeof users.$inferSelect;
 export type Listing = typeof listings.$inferSelect;
 export type Sit = typeof sits.$inferSelect;
+export type SavedList = typeof savedLists.$inferSelect;
+export type SavedListItem = typeof savedListItems.$inferSelect;
 export type PhotoSchedule = typeof photoSchedules.$inferSelect;
 export type PhotoRequest = typeof photoRequests.$inferSelect;
 export type Photo = typeof photos.$inferSelect;
 export type Boost = typeof boosts.$inferSelect;
 export type BoostDefinition = typeof boostDefinitions.$inferSelect;
 export type Testimonial = typeof testimonials.$inferSelect;
+export type Review = typeof reviews.$inferSelect;

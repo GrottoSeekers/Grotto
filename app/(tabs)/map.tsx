@@ -20,10 +20,20 @@ const WORLD_REGION: Region = {
   longitudeDelta: 100,
 };
 
+function isInRegion(lat: number, lng: number, region: Region): boolean {
+  const latMin = region.latitude - region.latitudeDelta / 2;
+  const latMax = region.latitude + region.latitudeDelta / 2;
+  const lngMin = region.longitude - region.longitudeDelta / 2;
+  const lngMax = region.longitude + region.longitudeDelta / 2;
+  return lat >= latMin && lat <= latMax && lng >= lngMin && lng <= lngMax;
+}
+
 export default function MapScreen() {
   const router = useRouter();
   const [allListings, setAllListings] = useState<Listing[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentRegion, setCurrentRegion] = useState<Region>(WORLD_REGION);
+  const [searchRegion, setSearchRegion] = useState<Region | null>(null);
   const [mapMoved, setMapMoved] = useState(false);
 
   useEffect(() => {
@@ -32,21 +42,36 @@ export default function MapScreen() {
 
   const filtered = allListings.filter((l) => {
     const q = searchQuery.toLowerCase();
-    return (
+    const matchesSearch =
       !q ||
       l.title.toLowerCase().includes(q) ||
       (l.city ?? '').toLowerCase().includes(q) ||
-      (l.country ?? '').toLowerCase().includes(q)
-    );
+      (l.country ?? '').toLowerCase().includes(q);
+
+    const matchesRegion = !searchRegion || isInRegion(l.latitude, l.longitude, searchRegion);
+
+    return matchesSearch && matchesRegion;
   });
+
+  function handleSearchThisArea() {
+    setSearchRegion(currentRegion);
+    setMapMoved(false);
+  }
+
+  function handleClearArea() {
+    setSearchRegion(null);
+    setMapMoved(false);
+  }
 
   return (
     <View style={styles.container}>
       <MapView
-
         style={StyleSheet.absoluteFill}
         initialRegion={WORLD_REGION}
-        onRegionChangeComplete={() => setMapMoved(true)}
+        onRegionChangeComplete={(region) => {
+          setCurrentRegion(region);
+          setMapMoved(true);
+        }}
       >
         {filtered.map((listing) => (
           <Marker
@@ -59,7 +84,7 @@ export default function MapScreen() {
         ))}
       </MapView>
 
-      {/* Floating search bar */}
+      {/* Floating controls */}
       <SafeAreaView style={styles.overlay} edges={['top']} pointerEvents="box-none">
         <SearchPill
           value={searchQuery}
@@ -67,10 +92,22 @@ export default function MapScreen() {
           style={styles.searchBar}
         />
 
-        {mapMoved && (
-          <Pressable style={styles.searchAreaButton} onPress={() => setMapMoved(false)}>
+        {/* Search this area — shown when map has been panned */}
+        {mapMoved && !searchRegion && (
+          <Pressable style={styles.pillButton} onPress={handleSearchThisArea}>
             <Ionicons name="search" size={14} color={GrottoTokens.textPrimary} />
-            <Text style={styles.searchAreaText}>Search this area</Text>
+            <Text style={styles.pillButtonText}>Search this area</Text>
+          </Pressable>
+        )}
+
+        {/* Active region filter indicator */}
+        {searchRegion && (
+          <Pressable style={[styles.pillButton, styles.pillButtonActive]} onPress={handleClearArea}>
+            <Ionicons name="navigate" size={14} color={GrottoTokens.gold} />
+            <Text style={[styles.pillButtonText, styles.pillButtonTextActive]}>
+              {filtered.length} listing{filtered.length !== 1 ? 's' : ''} in this area
+            </Text>
+            <Ionicons name="close" size={14} color={GrottoTokens.gold} />
           </Pressable>
         )}
       </SafeAreaView>
@@ -94,7 +131,7 @@ const styles = StyleSheet.create({
     marginTop: Layout.spacing.sm,
     width: '90%',
   },
-  searchAreaButton: {
+  pillButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Layout.spacing.xs,
@@ -109,9 +146,16 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-  searchAreaText: {
+  pillButtonActive: {
+    borderWidth: 1.5,
+    borderColor: GrottoTokens.gold,
+  },
+  pillButtonText: {
     fontFamily: FontFamily.sansMedium,
     fontSize: 13,
     color: GrottoTokens.textPrimary,
+  },
+  pillButtonTextActive: {
+    color: GrottoTokens.gold,
   },
 });

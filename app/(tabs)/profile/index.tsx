@@ -14,6 +14,7 @@ import { GrottoTokens, FontFamily } from '@/constants/theme';
 import { Layout } from '@/constants/layout';
 import { useSessionStore } from '@/store/session-store';
 import { getCurrentUserFromDb, signOutDb } from '@/lib/auth';
+import GrottoLogo from '@/components/GrottoLogo';
 
 function getInitials(name: string) {
   const parts = name.trim().split(' ');
@@ -185,9 +186,7 @@ export default function ProfileIndexScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.brandRow}>
-        <View style={styles.iconRing}>
-          <Ionicons name="home" size={28} color={GrottoTokens.gold} />
-        </View>
+        <GrottoLogo size={72} variant="light" mark="house" />
       </View>
       <Text style={styles.heading}>Find your perfect{'\n'}house sit</Text>
       <Text style={styles.body}>
@@ -455,16 +454,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Layout.spacing.xl,
     marginTop: Layout.spacing.lg,
-  },
-  iconRing: {
-    width: 72,
-    height: 72,
-    borderRadius: Layout.radius.full,
-    backgroundColor: GrottoTokens.goldSubtle,
-    borderWidth: 1.5,
-    borderColor: GrottoTokens.goldMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   heading: {
     fontFamily: FontFamily.serifBold,

@@ -18,6 +18,7 @@ import { Layout } from '@/constants/layout';
 import type { AuthRole } from '@/lib/auth';
 import { signInDb } from '@/lib/auth';
 import { useSessionStore } from '@/store/session-store';
+import GrottoLogo from '@/components/GrottoLogo';
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -58,6 +59,9 @@ export default function SignInScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
       >
+        <View style={styles.logoWrap}>
+          <GrottoLogo size={48} variant="light" mark="house" />
+        </View>
         <Text style={styles.heading} selectable>Welcome back</Text>
         <Text style={styles.subheading} selectable>
           Choose your account type, then sign in with your email.
@@ -188,6 +192,11 @@ const styles = StyleSheet.create({
     padding: Layout.spacing.md,
     paddingBottom: Layout.spacing.xxl,
     gap: Layout.spacing.md,
+  },
+  logoWrap: {
+    alignItems: 'center',
+    paddingTop: Layout.spacing.md,
+    paddingBottom: Layout.spacing.xs,
   },
   heading: {
     fontFamily: FontFamily.serifBold,

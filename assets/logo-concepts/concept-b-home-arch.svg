@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+  <!-- Concept B: Home meets Grotto — house silhouette with arched grotto doorway -->
+  <rect width="500" height="500" fill="#FAF8F4"/>
+
+  <!-- House body -->
+  <rect x="110" y="230" width="280" height="190" rx="8" fill="#C9A84C"/>
+
+  <!-- Roof (triangle peak) -->
+  <polygon points="80,240 250,85 420,240" fill="#C9A84C"/>
+
+  <!-- Roof highlight ridge -->
+  <polygon points="80,240 250,85 420,240" fill="none" stroke="#A8873A" stroke-width="3"/>
+
+  <!-- Arched grotto doorway (cutout in negative space) -->
+  <path d="M 175 420 L 175 320 Q 175 260 250 260 Q 325 260 325 320 L 325 420 Z" fill="#FAF8F4"/>
+
+  <!-- Small paw print inside arch — subtle brand nod -->
+  <circle cx="250" cy="295" r="14" fill="#C9A84C"/>
+  <circle cx="228" cy="278" r="8" fill="#C9A84C"/>
+  <circle cx="272" cy="278" r="8" fill="#C9A84C"/>
+  <circle cx="215" cy="263" r="6" fill="#C9A84C"/>
+  <circle cx="285" cy="263" r="6" fill="#C9A84C"/>
+</svg>
