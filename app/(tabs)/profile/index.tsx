@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,7 +14,7 @@ import { useRouter } from 'expo-router';
 import { GrottoTokens, FontFamily } from '@/constants/theme';
 import { Layout } from '@/constants/layout';
 import { useSessionStore } from '@/store/session-store';
-import { getCurrentUserFromDb, signOutDb } from '@/lib/auth';
+import { getCurrentUserFromDb, signOutDb, deleteAccountDb } from '@/lib/auth';
 import GrottoLogo from '@/components/GrottoLogo';
 
 function getInitials(name: string) {
@@ -46,6 +47,25 @@ export default function ProfileIndexScreen() {
   async function handleSignOut() {
     await signOutDb();
     clearUser();
+  }
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      'Delete account',
+      'This will permanently delete your account and all your data. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            if (!currentUser) return;
+            await deleteAccountDb(currentUser.id);
+            clearUser();
+          },
+        },
+      ],
+    );
   }
 
   if (isLoading) {
@@ -84,7 +104,7 @@ export default function ProfileIndexScreen() {
               </View>
             )}
             <View style={styles.roleBadge}>
-              <Text style={styles.roleBadgeText}>{roleLabel[0]}</Text>
+              <Ionicons name={currentUser.role === 'sitter' ? 'paw' : 'home'} size={11} color={GrottoTokens.white} />
             </View>
           </View>
 
@@ -178,6 +198,14 @@ export default function ProfileIndexScreen() {
           <Ionicons name="log-out-outline" size={18} color={GrottoTokens.error} />
           <Text style={styles.signOutText}>Sign out</Text>
         </Pressable>
+
+        {/* ── Delete account ── */}
+        <Pressable
+          style={({ pressed }) => [styles.deleteRow, pressed && styles.pressed]}
+          onPress={handleDeleteAccount}
+        >
+          <Text style={styles.deleteText}>Delete account</Text>
+        </Pressable>
       </ScrollView>
     );
   }
@@ -259,10 +287,10 @@ const styles = StyleSheet.create({
 
   pageTitle: {
     fontFamily: FontFamily.serifBold,
-    fontSize: 30,
+    fontSize: 28,
     color: GrottoTokens.textPrimary,
-    paddingTop: Layout.spacing.sm,
-    paddingBottom: Layout.spacing.xs,
+    paddingTop: Layout.spacing.md,
+    paddingBottom: Layout.spacing.sm,
   },
 
   // ── Profile card ──────────────────────────────────────────────────────────
@@ -316,11 +344,6 @@ const styles = StyleSheet.create({
     borderColor: GrottoTokens.white,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  roleBadgeText: {
-    fontFamily: FontFamily.sansSemiBold,
-    fontSize: 11,
-    color: GrottoTokens.white,
   },
   profileName: {
     fontFamily: FontFamily.serifBold,
@@ -440,6 +463,18 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.sansMedium,
     fontSize: 15,
     color: GrottoTokens.error,
+  },
+  deleteRow: {
+    alignItems: 'center',
+    paddingVertical: Layout.spacing.sm,
+    marginTop: -Layout.spacing.xs,
+    marginBottom: Layout.spacing.sm,
+  },
+  deleteText: {
+    fontFamily: FontFamily.sansRegular,
+    fontSize: 13,
+    color: GrottoTokens.textMuted,
+    textDecorationLine: 'underline',
   },
 
   // ── Not signed in ─────────────────────────────────────────────────────────

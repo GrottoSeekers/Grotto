@@ -25,6 +25,9 @@ export const users = sqliteTable('users', {
   whyIWantToSit: text('why_i_want_to_sit'),
   // JSON array of local photo URIs e.g. '["file:///...","file:///..."]'
   galleryPhotos: text('gallery_photos'),
+  emailVerified: integer('email_verified').default(0),
+  emailVerificationCode: text('email_verification_code'),
+  passwordResetCode: text('password_reset_code'),
   createdAt: timestamp(),
 });
 
@@ -225,7 +228,11 @@ export const chatMessages = sqliteTable('chat_messages', {
   id: integer().primaryKey({ autoIncrement: true }),
   applicationId: integer('application_id').references(() => applications.id).notNull(),
   senderId: integer('sender_id').references(() => users.id).notNull(),
-  body: text().notNull(),
+  body: text().notNull().default(''),
+  // 'image' | 'file' | null
+  attachmentType: text('attachment_type'),
+  attachmentUri: text('attachment_uri'),
+  attachmentName: text('attachment_name'),
   createdAt: timestamp(),
 });
 

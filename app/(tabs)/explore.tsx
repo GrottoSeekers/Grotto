@@ -17,8 +17,8 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { useRouter, useFocusEffect } from 'expo-router';
 
 import { db } from '@/db/client';
-import { listings, sits, savedLists, savedListItems } from '@/db/schema';
-import type { Listing, Sit, SavedList } from '@/db/schema';
+import { applications, listings, sits, savedLists, savedListItems, users } from '@/db/schema';
+import type { Application, Listing, Sit, SavedList, User } from '@/db/schema';
 import { useSessionStore } from '@/store/session-store';
 import { GrottoTokens, FontFamily } from '@/constants/theme';
 import { Layout } from '@/constants/layout';
@@ -44,7 +44,12 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }>
   cancelled: { label: 'Cancelled', bg: '#FBE8E8',                text: GrottoTokens.error },
 };
 
-type SitWithListing = Sit & { listing?: Listing };
+type SitterEntry = {
+  application: Application;
+  sit: Sit;
+  listing?: Listing;
+  owner?: User;
+};
 
 interface ListWithListings extends SavedList {
   savedListings: Listing[];
@@ -61,8 +66,8 @@ export default function ExploreScreen() {
   const [loading, setLoading]         = useState(true);
   const [activeTab, setActiveTab]     = useState<'sits' | 'saved'>('sits');
 
-  // Sitter: my sits
-  const [mySits, setMySits]           = useState<SitWithListing[]>([]);
+  // Sitter: my sits/applications
+  const [mySits, setMySits]           = useState<SitterEntry[]>([]);
 
   // Sitter: saved lists
   const [savedListData, setSavedListData] = useState<ListWithListings[]>([]);
@@ -107,17 +112,42 @@ export default function ExploreScreen() {
           })
           .catch(() => setLoading(false));
       } else {
-        db.select()
-          .from(sits)
-          .where(eq(sits.sitterId, currentUser.id))
-          .then(async (sitRows) => {
-            const uniqueIds = [...new Set(sitRows.map((r) => r.listingId))];
-            let listingMap: Record<number, Listing> = {};
-            if (uniqueIds.length > 0) {
-              const listingRows = await db.select().from(listings).where(inArray(listings.id, uniqueIds));
-              for (const l of listingRows) listingMap[l.id] = l;
-            }
-            setMySits(sitRows.map((s) => ({ ...s, listing: listingMap[s.listingId] })));
+        db.select().from(applications)
+          .where(eq(applications.sitterId, currentUser.id))
+          .then(async (appRows) => {
+            if (appRows.length === 0) { setMySits([]); setLoading(false); return; }
+
+            const sitIds     = [...new Set(appRows.map((a) => a.sitId))];
+            const listingIds = [...new Set(appRows.map((a) => a.listingId))];
+
+            const [sitRows, listingRows] = await Promise.all([
+              db.select().from(sits).where(inArray(sits.id, sitIds)),
+              db.select().from(listings).where(inArray(listings.id, listingIds)),
+            ]);
+
+            const ownerIds = [...new Set(listingRows.map((l) => l.ownerId))];
+            const ownerRows = ownerIds.length > 0
+              ? await db.select().from(users).where(inArray(users.id, ownerIds))
+              : [];
+
+            const sitMap     = Object.fromEntries(sitRows.map((s) => [s.id, s]));
+            const listingMap = Object.fromEntries(listingRows.map((l) => [l.id, l]));
+            const ownerMap   = Object.fromEntries(ownerRows.map((u) => [u.id, u]));
+
+            setMySits(
+              appRows
+                .filter((a) => sitMap[a.sitId])
+                .map((a) => {
+                  const listing = listingMap[a.listingId];
+                  return {
+                    application: a,
+                    sit: sitMap[a.sitId],
+                    listing,
+                    owner: listing ? ownerMap[listing.ownerId] : undefined,
+                  };
+                })
+                .sort((a, b) => b.sit.startDate.localeCompare(a.sit.startDate))
+            );
             setLoading(false);
           })
           .catch(() => setLoading(false));
@@ -413,16 +443,20 @@ export default function ExploreScreen() {
   }
 
   // ── Sitter view ──────────────────────────────────────────────────────────────
-  // A sit is "upcoming" as long as it hasn't been completed or cancelled,
-  // regardless of date — an accepted sit that hasn't happened yet shouldn't
-  // be labelled as past just because test data has old dates.
-  const upcoming = mySits.filter(
-    (s) => s.status !== 'completed' && s.status !== 'cancelled'
-  ).sort((a, b) => a.startDate.localeCompare(b.startDate));
 
-  const past = mySits.filter(
-    (s) => s.status === 'completed' || s.status === 'cancelled'
-  ).sort((a, b) => b.startDate.localeCompare(a.startDate));
+  const applied   = mySits.filter((e) => e.application.status === 'pending');
+  const approved  = mySits.filter((e) => e.application.status === 'accepted' && e.sit.status !== 'live' && e.sit.status !== 'completed' && e.sit.status !== 'cancelled');
+  const live      = mySits.filter((e) => e.sit.status === 'live');
+  const previous  = mySits.filter((e) => e.sit.status === 'completed');
+  const cancelled = mySits.filter((e) => e.sit.status === 'cancelled' || e.application.status === 'withdrawn' || e.application.status === 'declined');
+
+  const SITTER_SECTIONS = [
+    { key: 'applied',   label: 'Applied',        color: GrottoTokens.gold,    entries: applied },
+    { key: 'approved',  label: 'Approved',        color: GrottoTokens.success, entries: approved },
+    { key: 'live',      label: 'Live now',        color: GrottoTokens.success, entries: live },
+    { key: 'previous',  label: 'Previous sits',   color: GrottoTokens.textMuted, entries: previous },
+    { key: 'cancelled', label: 'Cancelled',       color: '#D44C4C',            entries: cancelled },
+  ].filter((s) => s.entries.length > 0);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -467,38 +501,29 @@ export default function ExploreScreen() {
               </Pressable>
             </View>
           ) : (
-            <>
-              {upcoming.length > 0 && (
-                <>
-                  <Text style={styles.sectionLabel}>Upcoming</Text>
+            <View style={{ gap: Layout.spacing.xl }}>
+              {SITTER_SECTIONS.map(({ key, label, color, entries }, idx) => (
+                <View key={key}>
+                  <View style={styles.sitterSectionHeader}>
+                    <View style={[styles.sitterSectionDot, { backgroundColor: color }]} />
+                    <Text style={styles.sitterSectionLabel}>{label}</Text>
+                    <View style={[styles.sitterSectionBadge, { backgroundColor: color + '22' }]}>
+                      <Text style={[styles.sitterSectionBadgeText, { color }]}>{entries.length}</Text>
+                    </View>
+                  </View>
                   <View style={styles.cardList}>
-                    {upcoming.map((sit) => (
+                    {entries.map((entry) => (
                       <SitCard
-                        key={sit.id}
-                        sit={sit}
-                        onPress={() => sit.listing && router.push(`/listing/${sit.listing.id}`)}
+                        key={entry.application.id}
+                        entry={entry}
+                        onPress={() => entry.listing && router.push(`/listing/${entry.listing.id}`)}
+                        onMessage={() => router.push(`/chat/${entry.application.id}`)}
                       />
                     ))}
                   </View>
-                </>
-              )}
-              {past.length > 0 && (
-                <>
-                  <Text style={[styles.sectionLabel, upcoming.length > 0 && styles.sectionLabelSpaced]}>
-                    Past
-                  </Text>
-                  <View style={styles.cardList}>
-                    {past.map((sit) => (
-                      <SitCard
-                        key={sit.id}
-                        sit={sit}
-                        onPress={() => sit.listing && router.push(`/listing/${sit.listing.id}`)}
-                      />
-                    ))}
-                  </View>
-                </>
-              )}
-            </>
+                </View>
+              ))}
+            </View>
           )}
         </ScrollView>
       ) : (
@@ -573,49 +598,78 @@ export default function ExploreScreen() {
 
 // ─── Sitter sit card ──────────────────────────────────────────────────────────
 
-function SitCard({ sit, onPress }: { sit: SitWithListing; onPress: () => void }) {
-  const { listing } = sit;
+function SitCard({ entry, onPress, onMessage }: {
+  entry: SitterEntry;
+  onPress: () => void;
+  onMessage: () => void;
+}) {
+  const { sit, listing, owner } = entry;
   const nights = nightsBetween(sit.startDate, sit.endDate);
-  const cfg = STATUS_CONFIG[sit.status] ?? STATUS_CONFIG.open;
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      style={({ pressed }) => [styles.sitCard, pressed && styles.cardPressed]}
       onPress={onPress}
     >
-      <View style={styles.cardImageWrap}>
+      {/* Cover image */}
+      <View style={styles.sitCardImageWrap}>
         {listing?.coverPhotoUrl ? (
-          <Image source={{ uri: listing.coverPhotoUrl }} style={styles.cardImage} contentFit="cover" transition={200} />
+          <Image source={{ uri: listing.coverPhotoUrl }} style={styles.sitCardImage} contentFit="cover" transition={200} />
         ) : (
-          <View style={[styles.cardImage, styles.cardImageFallback]}>
-            <Ionicons name="home-outline" size={24} color={GrottoTokens.goldMuted} />
+          <View style={[styles.sitCardImage, styles.cardImageFallback]}>
+            <Ionicons name="home-outline" size={32} color={GrottoTokens.goldMuted} />
           </View>
         )}
       </View>
-      <View style={styles.cardBody}>
-        <View style={styles.cardTop}>
-          <Text style={styles.cardTitle} numberOfLines={1}>
-            {listing?.title ?? 'Listing removed'}
-          </Text>
-          <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
-            <Text style={[styles.statusText, { color: cfg.text }]}>{cfg.label}</Text>
+
+      {/* Body */}
+      <View style={styles.sitCardBody}>
+        {/* Title + location */}
+        <Text style={styles.sitCardTitle} numberOfLines={1}>
+          {listing?.title ?? 'Listing removed'}
+        </Text>
+
+        {/* Owner row */}
+        {owner && (
+          <View style={styles.sitCardOwnerRow}>
+            {owner.avatarUrl ? (
+              <Image source={{ uri: owner.avatarUrl }} style={styles.sitCardOwnerAvatar} contentFit="cover" />
+            ) : (
+              <View style={[styles.sitCardOwnerAvatar, styles.sitCardOwnerAvatarFallback]}>
+                <Ionicons name="person" size={10} color={GrottoTokens.goldMuted} />
+              </View>
+            )}
+            <Text style={styles.sitCardOwnerName} numberOfLines={1}>{owner.name}</Text>
           </View>
-        </View>
+        )}
+
         {listing && (
           <View style={styles.cardLocationRow}>
-            <Ionicons name="location-outline" size={12} color={GrottoTokens.textMuted} />
+            <Ionicons name="location-outline" size={13} color={GrottoTokens.textMuted} />
             <Text style={styles.cardLocation} numberOfLines={1}>
               {[listing.city, listing.country].filter(Boolean).join(', ')}
             </Text>
           </View>
         )}
+
+        {/* Dates */}
         <View style={styles.cardDatesRow}>
-          <Ionicons name="calendar-outline" size={13} color={GrottoTokens.gold} />
+          <Ionicons name="calendar-outline" size={14} color={GrottoTokens.gold} />
           <Text style={styles.cardDates}>
             {formatDate(sit.startDate)} – {formatDate(sit.endDate)}
           </Text>
-          <Text style={styles.cardNights}>· {nights} night{nights !== 1 ? 's' : ''}</Text>
+          <Text style={styles.cardNights}>· {nights}n</Text>
         </View>
+
+        {/* Message button */}
+        <Pressable
+          style={styles.messageBtn}
+          onPress={(e) => { e.stopPropagation(); onMessage(); }}
+          hitSlop={4}
+        >
+          <Ionicons name="chatbubble-outline" size={13} color={GrottoTokens.gold} />
+          <Text style={styles.messageBtnText}>Message owner</Text>
+        </Pressable>
       </View>
     </Pressable>
   );
@@ -968,7 +1022,35 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.sansSemiBold,
   },
 
-  // ── Section labels
+  // ── Sitter section headers
+  sitterSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Layout.spacing.sm,
+    marginBottom: Layout.spacing.sm,
+  },
+  sitterSectionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  sitterSectionLabel: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    color: GrottoTokens.textPrimary,
+    flex: 1,
+  },
+  sitterSectionBadge: {
+    borderRadius: Layout.radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  sitterSectionBadgeText: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 12,
+  },
+
+  // ── Section labels (owner collapsible sections use these)
   sectionLabel: {
     fontFamily: FontFamily.sansSemiBold,
     fontSize: 13,
@@ -983,6 +1065,59 @@ const styles = StyleSheet.create({
   },
   cardList: {
     gap: Layout.spacing.md,
+  },
+
+  // ── Sitter sit card (larger format)
+  sitCard: {
+    backgroundColor: GrottoTokens.white,
+    borderRadius: Layout.radius.xl,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: GrottoTokens.borderSubtle,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  sitCardImageWrap: {
+    width: '100%',
+    height: 160,
+  },
+  sitCardImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: GrottoTokens.goldSubtle,
+  },
+  sitCardBody: {
+    padding: Layout.spacing.md,
+    gap: 6,
+  },
+  sitCardTitle: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 17,
+    color: GrottoTokens.textPrimary,
+  },
+  sitCardOwnerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sitCardOwnerAvatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: GrottoTokens.goldSubtle,
+  },
+  sitCardOwnerAvatarFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sitCardOwnerName: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 13,
+    color: GrottoTokens.textSecondary,
+    flex: 1,
   },
 
   // ── Empty state
@@ -1107,6 +1242,23 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.sansRegular,
     fontSize: 12,
     color: GrottoTokens.textMuted,
+  },
+  messageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: GrottoTokens.goldSubtle,
+    borderRadius: Layout.radius.full,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: GrottoTokens.goldMuted,
+  },
+  messageBtnText: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 12,
+    color: GrottoTokens.gold,
   },
   cardMetaRow: {
     flexDirection: 'row',

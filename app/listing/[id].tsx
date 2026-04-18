@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
+  Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
@@ -16,7 +17,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { eq } from 'drizzle-orm';
-import MapView, { Circle, Marker } from 'react-native-maps';
+import MapView, { Circle } from 'react-native-maps';
 
 import { db } from '@/db/client';
 import { listings, sits, users } from '@/db/schema';
@@ -99,6 +100,7 @@ export default function ListingDetailScreen() {
   const [saved, setSaved]                     = useState(false);
   const [saveSheetVisible, setSaveSheetVisible] = useState(false);
   const [reviewsVisible, setReviewsVisible]     = useState(false);
+  const [mapFullScreen, setMapFullScreen]       = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -500,7 +502,7 @@ export default function ListingDetailScreen() {
           <Text style={styles.locationSubtitle}>
             {[listing.city, listing.country].filter(Boolean).join(', ')}
           </Text>
-          <View style={styles.mapBox}>
+          <Pressable onPress={() => setMapFullScreen(true)} style={styles.mapBox}>
             <MapView
               style={StyleSheet.absoluteFill}
               scrollEnabled={false}
@@ -514,7 +516,6 @@ export default function ListingDetailScreen() {
                 longitudeDelta: 0.06,
               }}
             >
-              {/* Show a radius circle rather than exact pin for sitter privacy */}
               <Circle
                 center={{ latitude: listing.latitude, longitude: listing.longitude }}
                 radius={800}
@@ -522,14 +523,43 @@ export default function ListingDetailScreen() {
                 strokeColor={GrottoTokens.gold}
                 strokeWidth={1.5}
               />
-              <Marker
-                coordinate={{ latitude: listing.latitude, longitude: listing.longitude }}
-                anchor={{ x: 0.5, y: 0.5 }}
-              >
-                <View style={styles.mapDot} />
-              </Marker>
             </MapView>
-          </View>
+            <View style={styles.mapExpandHint}>
+              <Ionicons name="expand-outline" size={16} color={GrottoTokens.white} />
+            </View>
+          </Pressable>
+
+          <Modal visible={mapFullScreen} animationType="slide" onRequestClose={() => setMapFullScreen(false)}>
+            <View style={{ flex: 1 }}>
+              <MapView
+                style={StyleSheet.absoluteFill}
+                initialRegion={{
+                  latitude: listing.latitude,
+                  longitude: listing.longitude,
+                  latitudeDelta: 0.06,
+                  longitudeDelta: 0.06,
+                }}
+              >
+                <Circle
+                  center={{ latitude: listing.latitude, longitude: listing.longitude }}
+                  radius={800}
+                  fillColor="rgba(201,168,76,0.15)"
+                  strokeColor={GrottoTokens.gold}
+                  strokeWidth={1.5}
+                />
+              </MapView>
+              <SafeAreaView style={styles.mapModalBar}>
+                <Pressable
+                  style={({ pressed }) => [styles.mapCloseBar, pressed && { opacity: 0.85 }]}
+                  onPress={() => setMapFullScreen(false)}
+                >
+                  <Ionicons name="arrow-back" size={18} color={GrottoTokens.textPrimary} />
+                  <Text style={styles.mapCloseBarText}>Back to listing</Text>
+                </Pressable>
+              </SafeAreaView>
+            </View>
+          </Modal>
+
           <View style={styles.mapDisclaimer}>
             <Ionicons name="location-outline" size={13} color={GrottoTokens.textMuted} />
             <Text style={styles.mapDisclaimerText}>
@@ -1015,6 +1045,39 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: GrottoTokens.surface,
   },
+  mapExpandHint: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: Layout.radius.sm,
+    padding: 5,
+  },
+  mapModalBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: GrottoTokens.white,
+    borderTopWidth: 1,
+    borderTopColor: GrottoTokens.borderSubtle,
+    paddingHorizontal: Layout.spacing.md,
+    paddingVertical: Layout.spacing.sm,
+  },
+  mapCloseBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Layout.spacing.sm,
+    paddingVertical: 12,
+    backgroundColor: GrottoTokens.offWhite,
+    borderRadius: Layout.radius.full,
+  },
+  mapCloseBarText: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    color: GrottoTokens.textPrimary,
+  },
 
   // ── Owner card
   ownerCard: {
@@ -1182,19 +1245,6 @@ const styles = StyleSheet.create({
   },
 
   // ── Map
-  mapDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: GrottoTokens.gold,
-    borderWidth: 2.5,
-    borderColor: GrottoTokens.white,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    elevation: 4,
-  },
   mapDisclaimer: {
     flexDirection: 'row',
     alignItems: 'center',

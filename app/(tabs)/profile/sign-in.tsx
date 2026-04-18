@@ -27,6 +27,7 @@ export default function SignInScreen() {
   const [role, setRole] = useState<AuthRole | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -101,17 +102,32 @@ export default function SignInScreen() {
             </Field>
 
             <Field label="Password">
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                placeholder="Your password"
-                placeholderTextColor={GrottoTokens.textMuted}
-                style={styles.input}
-                returnKeyType="done"
-                onSubmitEditing={handleSubmit}
-              />
+              <View style={styles.passwordRow}>
+                <TextInput
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  placeholder="Your password"
+                  placeholderTextColor={GrottoTokens.textMuted}
+                  style={[styles.input, styles.passwordInput]}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSubmit}
+                />
+                <Pressable
+                  style={styles.showToggle}
+                  onPress={() => setShowPassword((v) => !v)}
+                  hitSlop={8}
+                >
+                  <Text style={styles.showToggleText}>{showPassword ? 'Hide' : 'Show'}</Text>
+                </Pressable>
+              </View>
             </Field>
+
+            <Link href="/profile/forgot-password" asChild>
+              <Pressable style={styles.forgotBtn}>
+                <Text style={styles.forgotText}>Forgot password?</Text>
+              </Pressable>
+            </Link>
 
             {error && <Text style={styles.error} selectable>{error}</Text>}
 
@@ -315,6 +331,33 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: GrottoTokens.white,
     letterSpacing: 0.2,
+  },
+  passwordRow: {
+    position: 'relative',
+  },
+  passwordInput: {
+    paddingRight: 60,
+  },
+  showToggle: {
+    position: 'absolute',
+    right: Layout.spacing.md,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
+  showToggleText: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 13,
+    color: GrottoTokens.gold,
+  },
+  forgotBtn: {
+    alignSelf: 'flex-end',
+    marginTop: -4,
+  },
+  forgotText: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 13,
+    color: GrottoTokens.gold,
   },
   error: {
     fontFamily: FontFamily.sansRegular,

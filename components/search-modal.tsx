@@ -118,19 +118,26 @@ export function SearchModal({
 
   const [inputFocused, setInputFocused] = useState(false);
 
-  const filteredSuggestions = useMemo(() => {
+  const { filteredSuggestions, freeTextEntry } = useMemo(() => {
     const q = location.trim().toLowerCase();
-    if (!q) return suggestions.slice(0, 8);
+    if (!q) return { filteredSuggestions: suggestions.slice(0, 8), freeTextEntry: null };
+
     const results = suggestions.filter(s =>
       s.label.toLowerCase().includes(q) || s.sublabel.toLowerCase().includes(q)
     );
-    // Sort: exact start-of-word matches first
     results.sort((a, b) => {
       const aStarts = a.label.toLowerCase().startsWith(q) ? 0 : 1;
       const bStarts = b.label.toLowerCase().startsWith(q) ? 0 : 1;
       return aStarts - bStarts;
     });
-    return results.slice(0, 8);
+
+    // Show a free-text "Search for X" entry if the typed value isn't an exact match
+    const exactMatch = results.some(s => s.label.toLowerCase() === q);
+    const entry: LocationSuggestion | null = exactMatch
+      ? null
+      : { label: location.trim(), sublabel: 'Search anywhere', type: 'city' };
+
+    return { filteredSuggestions: results.slice(0, 6), freeTextEntry: entry };
   }, [suggestions, location]);
 
   function handleDayPress(date: Date) {
@@ -225,11 +232,35 @@ export function SearchModal({
             </View>
 
             {/* Location suggestions dropdown */}
-            {(inputFocused || location.length > 0) && filteredSuggestions.length > 0 && (
+            {(inputFocused || location.length > 0) && (freeTextEntry || filteredSuggestions.length > 0) && (
               <View style={styles.suggestionsDropdown}>
                 {!location.trim() && (
                   <Text style={styles.suggestionsHeader}>Suggested destinations</Text>
                 )}
+
+                {/* Free-text "Search for X" row — always first when user typed something new */}
+                {freeTextEntry && (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.suggestionRow,
+                      filteredSuggestions.length > 0 && styles.suggestionRowBorder,
+                      pressed && styles.suggestionRowPressed,
+                    ]}
+                    onPress={() => {
+                      onSearch(freeTextEntry.label, dateStart ? toISO(dateStart) : null, dateEnd ? toISO(dateEnd) : null);
+                      onClose();
+                    }}
+                  >
+                    <View style={[styles.suggestionIcon, styles.suggestionIconFreeText]}>
+                      <Ionicons name="search" size={16} color={GrottoTokens.gold} />
+                    </View>
+                    <View style={styles.suggestionTextWrap}>
+                      <Text style={styles.suggestionLabel}>{freeTextEntry.label}</Text>
+                      <Text style={styles.suggestionSublabel}>{freeTextEntry.sublabel}</Text>
+                    </View>
+                  </Pressable>
+                )}
+
                 {filteredSuggestions.map((s, i) => {
                   const active = location === s.label;
                   const isLast = i === filteredSuggestions.length - 1;
@@ -243,12 +274,7 @@ export function SearchModal({
                         pressed && styles.suggestionRowPressed,
                       ]}
                       onPress={() => {
-                        // Immediately search and close — no need to press the Search button
-                        onSearch(
-                          s.label,
-                          dateStart ? toISO(dateStart) : null,
-                          dateEnd   ? toISO(dateEnd)   : null,
-                        );
+                        onSearch(s.label, dateStart ? toISO(dateStart) : null, dateEnd ? toISO(dateEnd) : null);
                         onClose();
                       }}
                     >
@@ -543,6 +569,10 @@ const styles = StyleSheet.create({
   suggestionIconActive: {
     backgroundColor: GrottoTokens.gold,
     borderColor: GrottoTokens.gold,
+  },
+  suggestionIconFreeText: {
+    backgroundColor: GrottoTokens.goldSubtle,
+    borderColor: GrottoTokens.goldMuted,
   },
   suggestionTextWrap: {
     flex: 1,

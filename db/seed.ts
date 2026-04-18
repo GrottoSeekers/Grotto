@@ -83,6 +83,17 @@ export async function seedDatabase() {
       occupation:   'Marine Biologist',
       location:     'Amsterdam, Netherlands',
     },
+    {
+      externalId:   'mock-owner-6',
+      name:         'Yuki Tanaka',
+      avatarUrl:    'https://i.pravatar.cc/150?img=45',
+      role:         'owner',
+      bio:          'Photographer and travel blogger based in Tokyo. Soba is a gentle Shiba Inu who loves quiet mornings and evening walks through the neighbourhood.',
+      rating:       4.85,
+      reviewCount:  12,
+      occupation:   'Photographer',
+      location:     'Tokyo, Japan',
+    },
   ]).onConflictDoNothing();
 
   // ── Listings ─────────────────────────────────────────────────────────────────
@@ -333,132 +344,22 @@ export async function seedDatabase() {
         { name: 'Cleo', breed: 'Bengal', age: 7, photoUrl: 'https://images.unsplash.com/photo-1596854407944-bf87f6fdd49e?w=400' },
       ]),
     },
-    // 10 — Clifton, Cape Town (owner 6 = Anika)
+    // 10 — Shinjuku, Tokyo (owner 6 = Yuki)
     {
       ownerId:      6,
-      title:        'Cape Town Clifton Retreat',
-      description:  'Spectacular clifftop retreat with direct access to Clifton 4th Beach and unobstructed Atlantic Ocean views. The property spans three floors with a heated pool, outdoor entertaining area, and floor-to-ceiling glass throughout. Atlas and Nova are two Vizslas — sleek, affectionate, and exceptionally well-trained. They need two beach runs a day and will reward you with unwavering loyalty.',
-      address:      '4th Beach, Clifton, Cape Town',
-      latitude:     -33.9389,
-      longitude:    18.3773,
-      city:         'Cape Town',
-      country:      'South Africa',
-      bedrooms:     4,
-      bathrooms:    3,
-      amenities:    JSON.stringify(['beach access', 'pool', 'wifi', 'sea view', 'bbq', 'parking']),
-      petCount:     2,
-      petTypes:     JSON.stringify(['dog', 'dog']),
-      coverPhotoUrl: 'https://images.unsplash.com/photo-1580537659466-0a9bfa916a54?w=800',
-      photos:       JSON.stringify([
-        'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800',
-        'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800',
-        'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800',
-        'https://images.unsplash.com/photo-1521783988139-89397d761dce?w=800',
-        'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800',
-      ]),
-      petPhotos:    JSON.stringify([
-        { name: 'Atlas', breed: 'Vizsla', age: 3, photoUrl: 'https://images.unsplash.com/photo-1583511655826-05700d52f4d1?w=400' },
-        { name: 'Nova',  breed: 'Vizsla', age: 2, photoUrl: 'https://images.unsplash.com/photo-1504826260979-242151ee45b7?w=400' },
-      ]),
-    },
-    // 11 — Alfama, Lisbon (owner 3 = Jean-Pierre)
-    {
-      ownerId:      3,
-      title:        'Lisbon Alfama Townhouse',
-      description:  'A lovingly restored 19th-century townhouse in the ancient Alfama district, with exposed stone walls, Azulejo tiles, and a rooftop terrace with sweeping views over the Tagus and the city. Porto is a two-year-old Portuguese Water Dog — enthusiastic, brilliant with strangers, and perpetually happy.',
-      address:      'Rua das Flores, Alfama, Lisbon',
-      latitude:     38.7139,
-      longitude:    -9.1334,
-      city:         'Lisbon',
-      country:      'Portugal',
-      bedrooms:     3,
-      bathrooms:    2,
-      amenities:    JSON.stringify(['wifi', 'terrace', 'workspace', 'washer', 'sea view']),
-      petCount:     1,
-      petTypes:     JSON.stringify(['dog']),
-      coverPhotoUrl: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800',
-      photos:       JSON.stringify([
-        'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800',
-        'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800',
-        'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800',
-        'https://images.unsplash.com/photo-1521783988139-89397d761dce?w=800',
-        'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800',
-      ]),
-      petPhotos:    JSON.stringify([
-        { name: 'Porto', breed: 'Portuguese Water Dog', age: 2, photoUrl: 'https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?w=400' },
-      ]),
-    },
-    // 12 — Jordaan, Amsterdam (owner 6 = Anika)
-    {
-      ownerId:      6,
-      title:        'Amsterdam Canal House',
-      description:  'A picture-perfect 17th-century canal house on one of the Jordaan\'s most beautiful streets. Original oak beams, a traditional Dutch interior, and a private canal-view terrace. Pip is a two-year-old Holland Lop rabbit — litter-trained, extremely sociable, and very low-maintenance. She will sit on your lap for hours.',
-      address:      'Brouwersgracht 124, Jordaan, Amsterdam',
-      latitude:     52.3776,
-      longitude:    4.8836,
-      city:         'Amsterdam',
-      country:      'Netherlands',
+      title:        'Tokyo Shinjuku Townhouse',
+      description:  'A serene Japanese townhouse tucked into a quiet lane in Shinjuku, minutes from the buzzing city yet utterly peaceful inside. Tatami floors, a small zen garden, and all modern comforts. Soba is a three-year-old Shiba Inu — calm, independent, and perfectly behaved on a lead.',
+      address:      '2-14 Shinjuku, Tokyo',
+      latitude:     35.6938,
+      longitude:    139.7034,
+      city:         'Tokyo',
+      country:      'Japan',
       bedrooms:     2,
       bathrooms:    1,
-      amenities:    JSON.stringify(['wifi', 'terrace', 'washer', 'central location', 'workspace']),
+      amenities:    JSON.stringify(['wifi', 'garden', 'workspace', 'washer', 'central location']),
       petCount:     1,
-      petTypes:     JSON.stringify(['rabbit']),
-      coverPhotoUrl: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800',
-      photos:       JSON.stringify([
-        'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800',
-        'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800',
-        'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800',
-        'https://images.unsplash.com/photo-1521783988139-89397d761dce?w=800',
-        'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800',
-      ]),
-      petPhotos:    JSON.stringify([
-        { name: 'Pip', breed: 'Holland Lop', age: 2, photoUrl: 'https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=400' },
-      ]),
-    },
-    // 13 — Val d'Orcia, Tuscany (owner 3 = Jean-Pierre)
-    {
-      ownerId:      3,
-      title:        'Tuscan Val d\'Orcia Villa',
-      description:  'A magnificent stone villa in the UNESCO-protected Val d\'Orcia landscape — cypress-lined drives, rolling hills, and total seclusion. The property has a heated pool, vast gardens, and a cellar stocked with local wine. Dante and Lucia are two Maremma Sheepdogs — majestic, calm, and deeply attached to their land. They need space, love, and long evening walks.',
-      address:      'Localita Ripa, Val d\'Orcia, Tuscany',
-      latitude:     43.0547,
-      longitude:    11.6855,
-      city:         'Tuscany',
-      country:      'Italy',
-      bedrooms:     5,
-      bathrooms:    3,
-      amenities:    JSON.stringify(['pool', 'garden', 'wifi', 'parking', 'bbq', 'fireplace', 'workspace']),
-      petCount:     2,
-      petTypes:     JSON.stringify(['dog', 'dog']),
-      coverPhotoUrl: 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800',
-      photos:       JSON.stringify([
-        'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800',
-        'https://images.unsplash.com/photo-1416331108676-a22ccb276e35?w=800',
-        'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800',
-        'https://images.unsplash.com/photo-1521783988139-89397d761dce?w=800',
-        'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800',
-      ]),
-      petPhotos:    JSON.stringify([
-        { name: 'Dante', breed: 'Maremma Sheepdog', age: 4, photoUrl: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=400' },
-        { name: 'Lucia', breed: 'Maremma Sheepdog', age: 3, photoUrl: 'https://images.unsplash.com/photo-1583511655826-05700d52f4d1?w=400' },
-      ]),
-    },
-    // 14 — Plateau-Mont-Royal, Montreal (owner 1 = Sophie)
-    {
-      ownerId:      1,
-      title:        'Montreal Victorian Home',
-      description:  'A stunning Victorian duplex in Montreal\'s most vibrant neighbourhood. Exposed brick, stained glass windows, and a spiral staircase up to a private rooftop deck. Charlie (4, ginger tabby) and Brie (6, Cavapoo) are inseparable companions — they\'ve lived together since puppyhood and will snuggle up to any willing human.',
-      address:      '3487 Rue Saint-Denis, Plateau-Mont-Royal, Montreal',
-      latitude:     45.5283,
-      longitude:    -73.5836,
-      city:         'Montreal',
-      country:      'Canada',
-      bedrooms:     3,
-      bathrooms:    2,
-      amenities:    JSON.stringify(['wifi', 'washer', 'workspace', 'rooftop', 'parking', 'fireplace']),
-      petCount:     2,
-      petTypes:     JSON.stringify(['cat', 'dog']),
-      coverPhotoUrl: 'https://images.unsplash.com/photo-1555636222-cae831e670b3?w=800',
+      petTypes:     JSON.stringify(['dog']),
+      coverPhotoUrl: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=800',
       photos:       JSON.stringify([
         'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800',
         'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800',
@@ -467,36 +368,7 @@ export async function seedDatabase() {
         'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800',
       ]),
       petPhotos:    JSON.stringify([
-        { name: 'Charlie', breed: 'Ginger Tabby',   age: 4, photoUrl: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=400' },
-        { name: 'Brie',    breed: 'Cavapoo',         age: 6, photoUrl: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=400' },
-      ]),
-    },
-    // 15 — Ubud, Bali (owner 4 = Elena)
-    {
-      ownerId:      4,
-      title:        'Bali Rice Terrace Villa',
-      description:  'An extraordinary open-plan villa perched above the Ubud rice terraces, with a traditional joglo pavilion, private infinity pool, and 270° views of jungle and terraced fields. Sari and Bali are two Balinese cats rescued from the local temple — serene, beautiful, and utterly at home in this magical setting.',
-      address:      'Jl. Raya Tegallalang, Ubud, Bali',
-      latitude:     -8.3636,
-      longitude:    115.2795,
-      city:         'Bali',
-      country:      'Indonesia',
-      bedrooms:     3,
-      bathrooms:    3,
-      amenities:    JSON.stringify(['infinity pool', 'garden', 'wifi', 'bbq', 'terrace', 'sea view']),
-      petCount:     2,
-      petTypes:     JSON.stringify(['cat', 'cat']),
-      coverPhotoUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800',
-      photos:       JSON.stringify([
-        'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800',
-        'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800',
-        'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800',
-        'https://images.unsplash.com/photo-1521783988139-89397d761dce?w=800',
-        'https://images.unsplash.com/photo-1416331108676-a22ccb276e35?w=800',
-      ]),
-      petPhotos:    JSON.stringify([
-        { name: 'Sari', breed: 'Balinese Cat', age: 3, photoUrl: 'https://images.unsplash.com/photo-1573865526182-bef0d0bc5d30?w=400' },
-        { name: 'Bali', breed: 'Balinese Cat', age: 4, photoUrl: 'https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=400' },
+        { name: 'Soba', breed: 'Shiba Inu', age: 3, photoUrl: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=400' },
       ]),
     },
   ];
@@ -546,30 +418,9 @@ export async function seedDatabase() {
     { listingId: 9, ownerId: 4, startDate: '2026-05-29', endDate: '2026-06-12' },
     { listingId: 9, ownerId: 4, startDate: '2026-08-07', endDate: '2026-08-21' },
 
-    // Listing 10 — Cape Town Retreat (owner 6)
-    { listingId: 10, ownerId: 6, startDate: '2026-07-05', endDate: '2026-07-19' },
-    { listingId: 10, ownerId: 6, startDate: '2026-12-07', endDate: '2026-12-21' },
-
-    // Listing 11 — Lisbon Townhouse (owner 3)
-    { listingId: 11, ownerId: 3, startDate: '2026-05-16', endDate: '2026-05-30' },
-    { listingId: 11, ownerId: 3, startDate: '2026-09-19', endDate: '2026-10-03' },
-
-    // Listing 12 — Amsterdam Canal House (owner 6)
-    { listingId: 12, ownerId: 6, startDate: '2026-06-06', endDate: '2026-06-20' },
-    { listingId: 12, ownerId: 6, startDate: '2026-10-17', endDate: '2026-10-31' },
-
-    // Listing 13 — Tuscan Villa (owner 3)
-    { listingId: 13, ownerId: 3, startDate: '2026-07-25', endDate: '2026-08-08' },
-    { listingId: 13, ownerId: 3, startDate: '2026-09-26', endDate: '2026-10-10' },
-
-    // Listing 14 — Montreal Victorian (owner 1)
-    { listingId: 14, ownerId: 1, startDate: '2026-06-13', endDate: '2026-06-27' },
-    { listingId: 14, ownerId: 1, startDate: '2026-08-29', endDate: '2026-09-12' },
-
-    // Listing 15 — Bali Villa (owner 4)
-    { listingId: 15, ownerId: 4, startDate: '2026-05-02', endDate: '2026-05-16' },
-    { listingId: 15, ownerId: 4, startDate: '2026-07-04', endDate: '2026-07-25' },
-    { listingId: 15, ownerId: 4, startDate: '2026-11-14', endDate: '2026-11-28' },
+    // Listing 10 — Tokyo Shinjuku Townhouse (owner 6)
+    { listingId: 10, ownerId: 6, startDate: '2026-06-07', endDate: '2026-06-21' },
+    { listingId: 10, ownerId: 6, startDate: '2026-10-03', endDate: '2026-10-17' },
   ];
 
   for (const sit of mockSits) {
@@ -599,15 +450,9 @@ export async function seedDatabase() {
     { subjectId: 4, authorName: 'Freya J.',   authorAvatarUrl: 'https://i.pravatar.cc/80?img=31', sitDescription: 'Barcelona · August 2024',      rating: 5, body: "Cleo charmed us within hours. The pool, the terrace, the Eixample location — Elena's home has everything. She's warm, organized, and made us feel completely trusted. Outstanding sit." },
 
     // Owner 5 — Marcus Williams (14 reviews, rating 4.7)
-    { subjectId: 5, authorName: 'Jasmine W.', authorAvatarUrl: 'https://i.pravatar.cc/80?img=35', sitDescription: 'Tribeca · May 2025',           rating: 5, body: "Marcus's Tribeca loft is spectacular and Max is a great little dog — very manageable, loves his walks, and full of personality. The apartment has everything you need. Would absolutely sit again." },
-    { subjectId: 5, authorName: 'Tom R.',     authorAvatarUrl: 'https://i.pravatar.cc/80?img=36', sitDescription: 'Bondi · November 2024',        rating: 4, body: "Archie and Milo are a handful — two Labradors with boundless energy — but the beach access makes the walks a joy. The Bondi house is stunning. Marcus is approachable and the instructions were spot-on." },
-    { subjectId: 5, authorName: 'Nina P.',    authorAvatarUrl: 'https://i.pravatar.cc/80?img=37', sitDescription: 'Brooklyn · July 2025',         rating: 5, body: "The brownstone is gorgeous and the garden was a delight in summer. Biscuit and Pepper are the most charming duo. Marcus keeps the place beautifully maintained and is easy to communicate with." },
-    { subjectId: 5, authorName: 'Callum D.',  authorAvatarUrl: 'https://i.pravatar.cc/80?img=39', sitDescription: 'Tribeca · August 2025',        rating: 4, body: "Great loft in an amazing location. Max is easygoing and the rooftop is a real treat in the evenings. A couple of quirks with the building's entry system but Marcus was quick to help. Good sit overall." },
-
-    // Owner 6 — Anika van den Berg (9 reviews, rating 5.0)
-    { subjectId: 6, authorName: 'Isabelle D.', authorAvatarUrl: 'https://i.pravatar.cc/80?img=44', sitDescription: 'Amsterdam · June 2025',       rating: 5, body: "The canal house is a dream. Pip is so easy and sociable — she's the most low-maintenance house pet I've ever cared for. Anika is incredibly organised and the house is beautifully maintained." },
-    { subjectId: 6, authorName: 'Lucas F.',   authorAvatarUrl: 'https://i.pravatar.cc/80?img=45', sitDescription: 'Cape Town · December 2024',    rating: 5, body: "The Clifton retreat is breathtaking. Atlas and Nova are wonderfully trained and the beach runs were the best part of every day. Anika's notes were meticulous. An unforgettable sit." },
-    { subjectId: 6, authorName: 'Miriam A.',  authorAvatarUrl: 'https://i.pravatar.cc/80?img=46', sitDescription: 'Amsterdam · October 2024',     rating: 5, body: "Staying on Brouwersgracht was a privilege. The house is stunning and Pip is delightful company. Anika is the most thoughtful host — everything was prepared perfectly. Cannot recommend highly enough." },
+    { subjectId: 5, authorName: 'Jasmine W.', authorAvatarUrl: 'https://i.pravatar.cc/80?img=35', sitDescription: 'Tribeca · May 2025',    rating: 5, body: "Marcus's Tribeca loft is spectacular and Max is a great little dog — very manageable, loves his walks, and full of personality. The apartment has everything you need. Would absolutely sit again." },
+    { subjectId: 5, authorName: 'Tom R.',     authorAvatarUrl: 'https://i.pravatar.cc/80?img=36', sitDescription: 'Bondi · November 2024', rating: 4, body: "Archie and Milo are a handful — two Labradors with boundless energy — but the beach access makes the walks a joy. The Bondi house is stunning. Marcus is approachable and the instructions were spot-on." },
+    { subjectId: 5, authorName: 'Nina P.',    authorAvatarUrl: 'https://i.pravatar.cc/80?img=37', sitDescription: 'Brooklyn · July 2025',  rating: 5, body: "The brownstone is gorgeous and the garden was a delight in summer. Biscuit and Pepper are the most charming duo. Marcus keeps the place beautifully maintained and is easy to communicate with." },
   ];
 
   for (const review of mockReviews) {

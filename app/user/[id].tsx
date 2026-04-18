@@ -136,9 +136,11 @@ export default function UserProfileScreen() {
               </View>
             )}
             <View style={[styles.roleBadge, user.role === 'sitter' && styles.roleBadgeSitter]}>
-              <Text style={styles.roleBadgeText}>
-                {user.role === 'sitter' ? 'S' : 'O'}
-              </Text>
+              <Ionicons
+                name={user.role === 'sitter' ? 'paw' : 'home'}
+                size={11}
+                color={GrottoTokens.white}
+              />
             </View>
           </View>
 

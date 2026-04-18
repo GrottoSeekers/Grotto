@@ -3,6 +3,10 @@ import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { authSessions, users } from '@/db/schema';
 
+function generateCode(): string {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
 export type AuthRole = 'sitter' | 'owner';
 
 function normalizeEmail(email: string) {
@@ -44,7 +48,7 @@ export async function signOutDb() {
   await db.delete(authSessions).where(eq(authSessions.id, 1));
 }
 
-export async function signUpDb(input: { role: AuthRole; firstName: string; email: string; password: string }) {
+export async function signUpDb(input: { role: AuthRole; firstName: string; email: string; password: string }): Promise<{ userId: number; verificationCode: string }> {
   const email = normalizeEmail(input.email);
   const firstName = input.firstName.trim();
   if (!firstName) throw new Error('Enter your first name.');
@@ -53,24 +57,48 @@ export async function signUpDb(input: { role: AuthRole; firstName: string; email
 
   const digest = await passwordDigest(email, input.password);
 
-  const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
-  if (existing.length > 0) throw new Error('An account with that email already exists.');
+  const existing = await db.select({ id: users.id, emailVerified: users.emailVerified }).from(users).where(eq(users.email, email)).limit(1);
 
-  const name = firstName;
+  const verificationCode = generateCode();
+
+  if (existing.length > 0) {
+    const existingUser = existing[0]!;
+    if (existingUser.emailVerified) throw new Error('An account with that email already exists.');
+
+    // Unverified account — overwrite with new signup details so they can retry
+    await db
+      .update(users)
+      .set({ passwordHash: digest, name: firstName, role: input.role, emailVerificationCode: verificationCode })
+      .where(eq(users.id, existingUser.id));
+
+    return { userId: existingUser.id, verificationCode };
+  }
 
   const inserted = await db
     .insert(users)
     .values({
       email,
       passwordHash: digest,
-      name,
+      name: firstName,
       role: input.role,
+      emailVerified: 0,
+      emailVerificationCode: verificationCode,
     })
     .returning({ id: users.id });
 
-  const userId = inserted[0]!.id;
+  return { userId: inserted[0]!.id, verificationCode };
+}
 
-  // Keep a single session row (id=1)
+export async function verifyEmail(userId: number, code: string) {
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!user) throw new Error('Account not found.');
+  if (user.emailVerificationCode !== code) throw new Error('Incorrect code. Please try again.');
+
+  await db
+    .update(users)
+    .set({ emailVerified: 1, emailVerificationCode: null })
+    .where(eq(users.id, userId));
+
   await db
     .insert(authSessions)
     .values({ id: 1, userId })
@@ -79,8 +107,34 @@ export async function signUpDb(input: { role: AuthRole; firstName: string; email
       set: { userId, createdAt: sql`(datetime('now'))` },
     });
 
-  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-  return user!;
+  const [updated] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  return updated!;
+}
+
+export async function requestPasswordReset(email: string): Promise<{ code: string }> {
+  const normalised = normalizeEmail(email);
+  const [user] = await db.select({ id: users.id }).from(users).where(eq(users.email, normalised)).limit(1);
+  if (!user) throw new Error('No account found with that email address.');
+
+  const code = generateCode();
+  await db.update(users).set({ passwordResetCode: code }).where(eq(users.id, user.id));
+  return { code };
+}
+
+export async function deleteAccountDb(userId: number) {
+  await db.delete(authSessions).where(eq(authSessions.id, 1));
+  await db.delete(users).where(eq(users.id, userId));
+}
+
+export async function resetPassword(email: string, code: string, newPassword: string) {
+  if (newPassword.length < 6) throw new Error('Password must be at least 6 characters.');
+  const normalised = normalizeEmail(email);
+  const [user] = await db.select().from(users).where(eq(users.email, normalised)).limit(1);
+  if (!user) throw new Error('No account found with that email address.');
+  if (user.passwordResetCode !== code) throw new Error('Incorrect code. Please try again.');
+
+  const digest = await passwordDigest(normalised, newPassword);
+  await db.update(users).set({ passwordHash: digest, passwordResetCode: null }).where(eq(users.id, user.id));
 }
 
 export async function signInDb(input: { role: AuthRole; email: string; password: string }) {
@@ -97,6 +151,7 @@ export async function signInDb(input: { role: AuthRole; email: string; password:
 
   if (!user) throw new Error('Incorrect email or password.');
   if (user.role !== input.role) throw new Error(`This account is registered as a ${user.role}.`);
+  if (!user.emailVerified) throw new Error('Please verify your email before signing in.');
 
   await db
     .insert(authSessions)

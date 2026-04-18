@@ -1,26 +1,41 @@
 import { GrottoTokens, FontFamily } from '@/constants/theme';
 import { Layout } from '@/constants/layout';
 import { BoostBadge } from '@/components/boost-badge';
-import type { Listing } from '@/db/schema';
+import type { Listing, Sit } from '@/db/schema';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-function formatDateShort(dateStr: string): string {
-  const d = new Date(dateStr);
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+function nightsBetween(start: string, end: string): number {
+  return Math.round(
+    (new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)
+  );
 }
 
 interface ListingCardProps {
   listing: Listing;
   onPress: (listing: Listing) => void;
   hasBadge?: boolean;
+  sits?: Sit[];
+  // legacy — still accepted so callers that pass nextSit don't break
   nextSit?: { startDate: string; endDate: string } | null;
 }
 
-
-export function ListingCard({ listing, onPress, hasBadge = false, nextSit }: ListingCardProps) {
+export function ListingCard({ listing, onPress, hasBadge = false, sits, nextSit }: ListingCardProps) {
   const petTypes: string[] = listing.petTypes ? JSON.parse(listing.petTypes) : [];
+
+  // Prefer the new `sits` array; fall back to legacy `nextSit`
+  const displaySits: { startDate: string; endDate: string }[] = sits && sits.length > 0
+    ? sits
+    : nextSit ? [nextSit] : [];
+
+  const firstSit  = displaySits[0] ?? null;
+  const extraCount = displaySits.length - 1;
 
   return (
     <Pressable
@@ -29,47 +44,74 @@ export function ListingCard({ listing, onPress, hasBadge = false, nextSit }: Lis
     >
       {/* Photo */}
       <View style={styles.imageContainer}>
-        <Image
-          source={{ uri: listing.coverPhotoUrl ?? undefined }}
-          style={styles.image}
-          contentFit="cover"
-          transition={300}
-        />
-        {/* Gradient overlay */}
-        <View style={styles.gradient} />
+        {listing.coverPhotoUrl ? (
+          <Image
+            source={{ uri: listing.coverPhotoUrl }}
+            style={styles.image}
+            contentFit="cover"
+            transition={300}
+          />
+        ) : (
+          <View style={[styles.image, styles.imageFallback]}>
+            <Ionicons name="home-outline" size={40} color={GrottoTokens.goldMuted} />
+          </View>
+        )}
 
-        {/* Top-right boost badge */}
         {hasBadge && (
           <View style={styles.badgeContainer}>
             <BoostBadge />
           </View>
         )}
+      </View>
 
-        {/* Bottom info overlay */}
-        <View style={styles.infoOverlay}>
-          <Text style={styles.title} numberOfLines={1}>
-            {listing.title}
-          </Text>
-          <View style={styles.metaRow}>
-            <Text style={styles.city} numberOfLines={1}>
-              {listing.city}{listing.country ? `, ${listing.country}` : ''}
-            </Text>
-            {petTypes.length > 0 && (
-              <View style={styles.petsRow}>
-                <Ionicons name="paw" size={11} color={GrottoTokens.goldMuted} />
-                <Text style={styles.petCount}>{petTypes.length}</Text>
-              </View>
-            )}
-          </View>
-          {nextSit && (
-            <View style={styles.datesRow}>
-              <Ionicons name="calendar-outline" size={10} color="rgba(255,255,255,0.7)" />
-              <Text style={styles.datesText}>
-                {formatDateShort(nextSit.startDate)} – {formatDateShort(nextSit.endDate)}
-              </Text>
+      {/* Info below image */}
+      <View style={styles.info}>
+        {/* Title row */}
+        <View style={styles.titleRow}>
+          <Text style={styles.title} numberOfLines={1}>{listing.title}</Text>
+          {petTypes.length > 0 && (
+            <View style={styles.petsRow}>
+              <Ionicons name="paw" size={13} color={GrottoTokens.textMuted} />
+              <Text style={styles.petCount}>{petTypes.length}</Text>
             </View>
           )}
         </View>
+
+        {/* Location + beds */}
+        <View style={styles.metaRow}>
+          <Ionicons name="location-outline" size={13} color={GrottoTokens.textMuted} />
+          <Text style={styles.metaText} numberOfLines={1}>
+            {[listing.city, listing.country].filter(Boolean).join(', ')}
+          </Text>
+          {listing.bedrooms != null && (
+            <>
+              <Text style={styles.dot}>·</Text>
+              <Ionicons name="bed-outline" size={13} color={GrottoTokens.textMuted} />
+              <Text style={styles.metaText}>{listing.bedrooms} bed</Text>
+            </>
+          )}
+        </View>
+
+        {/* Dates — Airbnb style */}
+        {firstSit ? (
+          <View style={styles.datesSection}>
+            <View style={styles.datesRow}>
+              <Text style={styles.datesLabel}>
+                {formatDate(firstSit.startDate)} – {formatDate(firstSit.endDate)}
+              </Text>
+              <Text style={styles.nightsLabel}>
+                {nightsBetween(firstSit.startDate, firstSit.endDate)} nights
+              </Text>
+            </View>
+            {extraCount > 0 && (
+              <Text style={styles.moreDates}>+{extraCount} more date{extraCount > 1 ? 's' : ''} available</Text>
+            )}
+          </View>
+        ) : (
+          <View style={styles.noDatesRow}>
+            <Text style={styles.noDatesText}>No upcoming dates</Text>
+          </View>
+        )}
       </View>
     </Pressable>
   );
@@ -77,83 +119,120 @@ export function ListingCard({ listing, onPress, hasBadge = false, nextSit }: Lis
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
-    borderRadius: Layout.radius.lg,
+    backgroundColor: GrottoTokens.white,
+    borderRadius: Layout.radius.xl,
     overflow: 'hidden',
-    backgroundColor: GrottoTokens.surface,
+    borderWidth: 1,
+    borderColor: GrottoTokens.borderSubtle,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.07,
     shadowRadius: 10,
-    elevation: 4,
+    elevation: 3,
   },
   pressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.98 }],
+    opacity: 0.93,
+    transform: [{ scale: 0.985 }],
   },
+
+  // ── Image
   imageContainer: {
-    aspectRatio: 3 / 4,
     width: '100%',
+    height: 220,
+    position: 'relative',
   },
   image: {
-    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    backgroundColor: GrottoTokens.goldSubtle,
   },
-  gradient: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: Layout.radius.lg,
+  imageFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   badgeContainer: {
     position: 'absolute',
     top: Layout.spacing.sm,
     right: Layout.spacing.sm,
   },
-  infoOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.38)',
-    paddingHorizontal: Layout.spacing.sm,
-    paddingVertical: Layout.spacing.sm,
-    borderBottomLeftRadius: Layout.radius.lg,
-    borderBottomRightRadius: Layout.radius.lg,
+
+  // ── Info section
+  info: {
+    paddingHorizontal: Layout.spacing.md,
+    paddingTop: 12,
+    paddingBottom: 14,
+    gap: 5,
   },
-  title: {
-    color: GrottoTokens.white,
-    fontSize: 13,
-    fontFamily: FontFamily.serifBold,
-    marginBottom: 2,
-  },
-  metaRow: {
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: Layout.spacing.sm,
   },
-  city: {
-    color: 'rgba(255,255,255,0.82)',
-    fontSize: 11,
-    fontFamily: FontFamily.sansRegular,
+  title: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 16,
+    color: GrottoTokens.textPrimary,
     flex: 1,
   },
   petsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 3,
   },
   petCount: {
-    color: GrottoTokens.goldMuted,
-    fontSize: 11,
     fontFamily: FontFamily.sansMedium,
+    fontSize: 13,
+    color: GrottoTokens.textMuted,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metaText: {
+    fontFamily: FontFamily.sansRegular,
+    fontSize: 13,
+    color: GrottoTokens.textMuted,
+  },
+  dot: {
+    fontFamily: FontFamily.sansRegular,
+    fontSize: 13,
+    color: GrottoTokens.textMuted,
+  },
+
+  // ── Dates — Airbnb style
+  datesSection: {
+    marginTop: 4,
+    gap: 3,
   },
   datesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    marginTop: 3,
+    justifyContent: 'space-between',
   },
-  datesText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 10,
+  datesLabel: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 14,
+    color: GrottoTokens.textPrimary,
+  },
+  nightsLabel: {
     fontFamily: FontFamily.sansRegular,
+    fontSize: 13,
+    color: GrottoTokens.textSecondary,
+  },
+  moreDates: {
+    fontFamily: FontFamily.sansRegular,
+    fontSize: 12,
+    color: GrottoTokens.gold,
+    textDecorationLine: 'underline',
+  },
+  noDatesRow: {
+    marginTop: 4,
+  },
+  noDatesText: {
+    fontFamily: FontFamily.sansRegular,
+    fontSize: 13,
+    color: GrottoTokens.textMuted,
   },
 });

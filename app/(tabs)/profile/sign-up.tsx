@@ -17,12 +17,11 @@ import { GrottoTokens, FontFamily } from '@/constants/theme';
 import { Layout } from '@/constants/layout';
 import type { AuthRole } from '@/lib/auth';
 import { signUpDb } from '@/lib/auth';
-import { useSessionStore } from '@/store/session-store';
+import { sendEmail, emailVerificationEmail } from '@/lib/email';
 import GrottoLogo from '@/components/GrottoLogo';
 
 export default function SignUpScreen() {
   const router = useRouter();
-  const { setUser } = useSessionStore();
 
   const [role, setRole] = useState<AuthRole | null>(null);
   const [firstName, setFirstName] = useState('');
@@ -42,9 +41,17 @@ export default function SignUpScreen() {
     setError(null);
     setIsSubmitting(true);
     try {
-      const user = await signUpDb({ role, firstName, email, password });
-      setUser(user);
-      router.replace('/profile');
+      const { userId, verificationCode } = await signUpDb({ role, firstName, email, password });
+      try {
+        await sendEmail(
+          email.trim(),
+          'Grotto — verify your email',
+          emailVerificationEmail(firstName, verificationCode),
+        );
+      } catch {
+        // Email failed but account was created — navigate anyway; verify screen handles resend
+      }
+      router.replace(`/profile/verify-email?userId=${userId}&code=${verificationCode}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not create account.');
     } finally {

@@ -329,7 +329,7 @@ function AppCard({
   const isPending = application.status === 'pending';
 
   const previewText = lastMessage
-    ? (lastMessage.senderId === currentUserId ? `You: ${lastMessage.body}` : lastMessage.body)
+    ? (lastMessage.senderId === currentUserId ? `You: ${lastMessage.body || '📎 Attachment'}` : (lastMessage.body || '📎 Attachment'))
     : (isOwner ? 'Applied for a sit' : 'Sent an application');
 
   const timeStr = relativeTime(lastMessage?.createdAt ?? application.createdAt);
@@ -357,7 +357,7 @@ function AppCard({
   }
 
   return (
-    <View style={styles.cardWrapper}>
+    <View style={[styles.cardWrapper, dimmed && styles.cardDimmed]}>
       <Swipeable
         ref={swipeRef}
         renderRightActions={renderRightActions}
@@ -366,58 +366,68 @@ function AppCard({
         rightThreshold={40}
       >
         <Pressable
-          style={({ pressed }) => [styles.card, pressed && styles.cardPressed, dimmed && styles.cardDimmed]}
+          style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
           onPress={onPress}
         >
-          {isOwner ? (
-            <View style={styles.cardAvatarWrap}>
-              {otherUser?.avatarUrl ? (
-                <Image source={{ uri: otherUser.avatarUrl }} style={styles.cardAvatar} contentFit="cover" />
+          {/* Cover image / avatar area */}
+          <View style={styles.cardImageWrap}>
+            {isOwner ? (
+              otherUser?.avatarUrl ? (
+                <Image source={{ uri: otherUser.avatarUrl }} style={styles.cardImage} contentFit="cover" />
               ) : (
-                <View style={[styles.cardAvatar, styles.cardAvatarFallback]}>
-                  <Ionicons name="person" size={20} color={GrottoTokens.goldMuted} />
+                <View style={[styles.cardImage, styles.cardImageFallback]}>
+                  <Ionicons name="person" size={40} color={GrottoTokens.goldMuted} />
                 </View>
-              )}
-              {hasUnread && <View style={styles.unreadDot} />}
-            </View>
-          ) : (
-            <View style={styles.cardThumbWrap}>
-              {listing.coverPhotoUrl ? (
-                <Image source={{ uri: listing.coverPhotoUrl }} style={styles.cardThumb} contentFit="cover" />
+              )
+            ) : (
+              listing.coverPhotoUrl ? (
+                <Image source={{ uri: listing.coverPhotoUrl }} style={styles.cardImage} contentFit="cover" />
               ) : (
-                <View style={[styles.cardThumb, styles.cardThumbFallback]}>
-                  <Ionicons name="home-outline" size={18} color={GrottoTokens.goldMuted} />
+                <View style={[styles.cardImage, styles.cardImageFallback]}>
+                  <Ionicons name="home-outline" size={40} color={GrottoTokens.goldMuted} />
                 </View>
-              )}
-              {hasUnread && <View style={styles.unreadDot} />}
-            </View>
-          )}
+              )
+            )}
 
+            {/* Status pill over image */}
+            <View style={[styles.cardStatusPill, { backgroundColor: statusCfg.bg }]}>
+              <Text style={[styles.cardStatusText, { color: statusCfg.color }]}>
+                {statusCfg.label}
+              </Text>
+            </View>
+
+            {/* Unread dot */}
+            {hasUnread && <View style={styles.unreadDot} />}
+          </View>
+
+          {/* Info below image */}
           <View style={styles.cardBody}>
             <View style={styles.cardTopRow}>
-              <Text style={[styles.cardName, (isPending || hasUnread) && styles.cardNameBold]} numberOfLines={1}>
-                {isOwner ? (otherUser?.name ?? 'Unknown sitter') : listing.title}
-              </Text>
+              <View style={styles.cardNameGroup}>
+                <Text style={[styles.cardName, hasUnread && styles.cardNameBold]} numberOfLines={1}>
+                  {isOwner ? (otherUser?.name ?? 'Unknown sitter') : (otherUser?.name ?? listing.title)}
+                </Text>
+                {!isOwner && (
+                  <Text style={styles.cardSubName} numberOfLines={1}>{listing.title}</Text>
+                )}
+                {isOwner && (
+                  <Text style={styles.cardSubName} numberOfLines={1}>{listing.title}</Text>
+                )}
+              </View>
               <Text style={styles.cardTime}>{timeStr}</Text>
             </View>
 
-            <Text style={[styles.cardSub, hasUnread && styles.cardSubUnread]} numberOfLines={1}>
+            <Text style={[styles.cardSub, hasUnread && styles.cardSubUnread]} numberOfLines={2}>
               {previewText}
             </Text>
 
-            <View style={styles.cardBottom}>
+            <View style={styles.cardDatesRow}>
+              <Ionicons name="calendar-outline" size={13} color={GrottoTokens.gold} />
               <Text style={styles.cardDates}>
                 {formatDate(sit.startDate)} – {formatDate(sit.endDate)}
               </Text>
-              <View style={[styles.statusPill, { backgroundColor: statusCfg.bg }]}>
-                <Text style={[styles.statusPillText, { color: statusCfg.color }]}>
-                  {statusCfg.label}
-                </Text>
-              </View>
             </View>
           </View>
-
-          <Ionicons name="chevron-forward" size={14} color={GrottoTokens.textMuted} />
         </Pressable>
       </Swipeable>
     </View>
@@ -491,35 +501,28 @@ const styles = StyleSheet.create({
     color: GrottoTokens.white,
   },
 
-  // ── Card wrapper (handles margin + clips swipe action)
+  // ── Card wrapper
   cardWrapper: {
-    marginBottom: Layout.spacing.sm,
+    marginBottom: Layout.spacing.md,
     borderRadius: Layout.radius.xl,
     overflow: 'hidden',
-    // Shadow on the wrapper so it shows despite overflow:hidden on iOS
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    elevation: 3,
   },
+  cardDimmed: { opacity: 0.45 },
 
-  // ── Card (Pressable inside Swipeable)
+  // ── Card (full-width, image on top)
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: GrottoTokens.white,
-    padding: Layout.spacing.md,
-    gap: Layout.spacing.md,
     borderWidth: 1,
     borderColor: GrottoTokens.borderSubtle,
+    borderRadius: Layout.radius.xl,
+    overflow: 'hidden',
   },
-  cardPressed: {
-    opacity: 0.88,
-  },
-  cardDimmed: {
-    opacity: 0.5,
-  },
+  cardPressed: { opacity: 0.92, transform: [{ scale: 0.985 }] },
 
   // ── Archive swipe action
   archiveAction: {
@@ -535,89 +538,96 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
 
-  // Avatar (owner view)
-  cardAvatarWrap: { position: 'relative' },
-  cardAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+  // ── Cover image area
+  cardImageWrap: {
+    width: '100%',
+    height: 180,
+    position: 'relative',
     backgroundColor: GrottoTokens.goldSubtle,
   },
-  cardAvatarFallback: { alignItems: 'center', justifyContent: 'center' },
-
-  // Thumbnail (sitter view)
-  cardThumbWrap: { position: 'relative' },
-  cardThumb: {
-    width: 52,
-    height: 52,
-    borderRadius: Layout.radius.md,
-    backgroundColor: GrottoTokens.goldSubtle,
+  cardImage: {
+    width: '100%',
+    height: '100%',
   },
-  cardThumbFallback: { alignItems: 'center', justifyContent: 'center' },
-
+  cardImageFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardStatusPill: {
+    position: 'absolute',
+    bottom: Layout.spacing.sm,
+    left: Layout.spacing.sm,
+    borderRadius: Layout.radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  cardStatusText: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 12,
+  },
   unreadDot: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    top: Layout.spacing.sm,
+    right: Layout.spacing.sm,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: GrottoTokens.gold,
     borderWidth: 2,
     borderColor: GrottoTokens.white,
   },
 
-  cardBody: { flex: 1, gap: 4 },
+  // ── Info below image
+  cardBody: {
+    paddingHorizontal: Layout.spacing.md,
+    paddingVertical: 12,
+    gap: 5,
+  },
   cardTopRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: Layout.spacing.sm,
   },
+  cardNameGroup: { flex: 1, gap: 2 },
   cardName: {
-    fontFamily: FontFamily.sansMedium,
-    fontSize: 15,
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 17,
     color: GrottoTokens.textPrimary,
-    flex: 1,
   },
   cardNameBold: { fontFamily: FontFamily.sansSemiBold },
-  cardTime: {
-    fontFamily: FontFamily.sansRegular,
-    fontSize: 11,
-    color: GrottoTokens.textMuted,
-    flexShrink: 0,
-  },
-  cardSub: {
+  cardSubName: {
     fontFamily: FontFamily.sansRegular,
     fontSize: 13,
     color: GrottoTokens.textSecondary,
+  },
+  cardTime: {
+    fontFamily: FontFamily.sansRegular,
+    fontSize: 12,
+    color: GrottoTokens.textMuted,
+    flexShrink: 0,
+    marginTop: 3,
+  },
+  cardSub: {
+    fontFamily: FontFamily.sansRegular,
+    fontSize: 14,
+    color: GrottoTokens.textSecondary,
+    lineHeight: 20,
   },
   cardSubUnread: {
     fontFamily: FontFamily.sansMedium,
     color: GrottoTokens.textPrimary,
   },
-  cardBottom: {
+  cardDatesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Layout.spacing.sm,
+    gap: 5,
     marginTop: 2,
   },
   cardDates: {
-    fontFamily: FontFamily.sansRegular,
-    fontSize: 12,
-    color: GrottoTokens.textMuted,
-    flex: 1,
-  },
-  statusPill: {
-    borderRadius: Layout.radius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    flexShrink: 0,
-  },
-  statusPillText: {
     fontFamily: FontFamily.sansMedium,
-    fontSize: 11,
+    fontSize: 13,
+    color: GrottoTokens.textPrimary,
   },
 
   // ── Archived section

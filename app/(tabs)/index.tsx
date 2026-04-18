@@ -21,8 +21,9 @@ import { Layout } from '@/constants/layout';
 import { useDiscoveryStore } from '@/store/discovery-store';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { listings, sits } from '@/db/schema';
+import { listings, sits, applications } from '@/db/schema';
 import type { Listing, Sit } from '@/db/schema';
+import { useSessionStore } from '@/store/session-store';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -53,6 +54,7 @@ function getDatesLabel(dateFrom: string | null, dateTo: string | null): string {
 
 export default function DiscoveryScreen() {
   const router = useRouter();
+  const { currentUser } = useSessionStore();
   const {
     viewMode,
     searchQuery,
@@ -79,6 +81,7 @@ export default function DiscoveryScreen() {
   const [mapMoved, setMapMoved]               = useState(false);
   const [currentRegion, setCurrentRegion]     = useState<Region>(WORLD_REGION);
   const [upcomingSits, setUpcomingSits]       = useState<Sit[]>([]);
+  const [appliedSitIds, setAppliedSitIds]     = useState<Set<number>>(new Set());
   const [searchModalVisible, setSearchModalVisible] = useState(false);
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
   const mapRef = useRef<MapView>(null);
@@ -94,15 +97,29 @@ export default function DiscoveryScreen() {
   useFocusEffect(
     useCallback(() => {
       const today = new Date().toISOString().slice(0, 10);
-      Promise.all([
+      const queries: Promise<unknown>[] = [
         db.select().from(listings).where(eq(listings.listingStatus, 'active')),
         db.select().from(sits),
-      ]).then(([listingRows, sitRows]) => {
+      ];
+      if (currentUser?.role === 'sitter') {
+        queries.push(
+          db.select().from(applications).where(eq(applications.sitterId, currentUser.id)),
+        );
+      }
+      Promise.all(queries).then((results) => {
+        const [listingRows, sitRows, appRows] = results as [typeof listings.$inferSelect[], Sit[], typeof applications.$inferSelect[]];
         setListings(listingRows);
         setUpcomingSits(sitRows.filter((s) => s.status === 'open' && s.startDate >= today));
+        if (appRows) {
+          const activeStatuses = new Set(['pending', 'accepted']);
+          const ids = new Set(
+            appRows.filter((a) => activeStatuses.has(a.status)).map((a) => a.sitId),
+          );
+          setAppliedSitIds(ids);
+        }
       }).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [currentUser?.id, currentUser?.role])
   );
 
 
@@ -123,10 +140,10 @@ export default function DiscoveryScreen() {
     return [...sortedCountries, ...sortedCities];
   }, [storedListings]);
 
-  function getNextSit(listingId: number): Sit | null {
+  function getListingSits(listingId: number): Sit[] {
     return upcomingSits
-      .filter((s) => s.listingId === listingId)
-      .sort((a, b) => a.startDate.localeCompare(b.startDate))[0] ?? null;
+      .filter((s) => s.listingId === listingId && !appliedSitIds.has(s.id))
+      .sort((a, b) => a.startDate.localeCompare(b.startDate));
   }
 
   // ── Full filter + sort pipeline ──────────────────────────────────────────────
@@ -187,7 +204,14 @@ export default function DiscoveryScreen() {
          l.longitude >= mapRegion.longitude - mapRegion.longitudeDelta / 2 &&
          l.longitude <= mapRegion.longitude + mapRegion.longitudeDelta / 2);
 
-      return matchesSearch && matchesDates && matchesPets && matchesDuration && matchesAmenities && matchesRegion;
+      // 7. For sitters: hide listings only when they have sits AND all are applied/accepted
+      const listingSits = upcomingSits.filter((s) => s.listingId === l.id);
+      const hasAvailableSit =
+        currentUser?.role !== 'sitter' ||
+        listingSits.length === 0 ||
+        listingSits.some((s) => !appliedSitIds.has(s.id));
+
+      return matchesSearch && matchesDates && matchesPets && matchesDuration && matchesAmenities && matchesRegion && hasAvailableSit;
     });
 
     // Sort
@@ -195,8 +219,8 @@ export default function DiscoveryScreen() {
       result.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
     } else if (sortBy === 'start_date') {
       result.sort((a, b) => {
-        const aNext = getNextSit(a.id);
-        const bNext = getNextSit(b.id);
+        const aNext = getListingSits(a.id)[0] ?? null;
+        const bNext = getListingSits(b.id)[0] ?? null;
         if (!aNext && !bNext) return 0;
         if (!aNext) return 1;
         if (!bNext) return -1;
@@ -206,7 +230,7 @@ export default function DiscoveryScreen() {
 
     return result;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storedListings, upcomingSits, searchQuery, dateFrom, dateTo, petFilters, minNights, amenityFilters, mapRegion, sortBy]);
+  }, [storedListings, upcomingSits, appliedSitIds, currentUser, searchQuery, dateFrom, dateTo, petFilters, minNights, amenityFilters, mapRegion, sortBy]);
 
   // ── Viewport-visible listings (for map count pill) ───────────────────────────
   const mapVisibleListings = useMemo(() => {
@@ -397,8 +421,6 @@ export default function DiscoveryScreen() {
         <FlatList
           data={filteredListings}
           keyExtractor={(item) => String(item.id)}
-          numColumns={2}
-          columnWrapperStyle={styles.columnWrapper}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
@@ -406,7 +428,7 @@ export default function DiscoveryScreen() {
               listing={item}
               onPress={(l: Listing) => router.push(`/listing/${l.id}`)}
               hasBadge={false}
-              nextSit={getNextSit(item.id)}
+              sits={getListingSits(item.id)}
             />
           )}
           ListEmptyComponent={
@@ -441,9 +463,10 @@ export default function DiscoveryScreen() {
             onRegionChangeComplete={(region) => {
               setCurrentRegion(region);
               if (isProgrammaticMove.current) {
-                // Programmatic fly-to (search / locate me) — don't show redo pill
                 isProgrammaticMove.current = false;
               } else {
+                // Auto-clear any stale region filter so the count reflects the new viewport
+                setMapRegion(null);
                 setMapMoved(true);
               }
             }}
@@ -482,7 +505,7 @@ export default function DiscoveryScreen() {
         </View>
       )}
 
-      {/* Floating list/map toggle */}
+      {/* Floating list/map toggle — icon only */}
       <Pressable
         style={styles.floatingToggle}
         onPress={() => {
@@ -492,13 +515,10 @@ export default function DiscoveryScreen() {
         }}
       >
         <Ionicons
-          name={viewMode === 'list' ? 'map' : 'list'}
-          size={16}
+          name={viewMode === 'list' ? 'map-outline' : 'list-outline'}
+          size={20}
           color={GrottoTokens.white}
         />
-        <Text style={styles.floatingToggleText}>
-          {viewMode === 'list' ? 'Map' : 'List'}
-        </Text>
       </Pressable>
 
       {/* ── Modals ── */}
@@ -643,13 +663,10 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
 
-  // ── Listing grid
+  // ── Listing list
   listContent: {
     paddingHorizontal: Layout.spacing.md,
     paddingBottom: Layout.tabBarHeight + Layout.spacing.xxl,
-    gap: Layout.spacing.md,
-  },
-  columnWrapper: {
     gap: Layout.spacing.md,
   },
 
@@ -755,28 +772,21 @@ const styles = StyleSheet.create({
     borderColor: GrottoTokens.borderSubtle,
   },
 
-  // ── Floating toggle
+  // ── Floating toggle (icon-only circle)
   floatingToggle: {
     position: 'absolute',
     bottom: Layout.tabBarHeight + Layout.spacing.md,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Layout.spacing.sm,
+    right: Layout.spacing.md,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: GrottoTokens.textPrimary,
-    borderRadius: Layout.radius.full,
-    paddingVertical: 12,
-    paddingHorizontal: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  floatingToggleText: {
-    color: GrottoTokens.white,
-    fontFamily: FontFamily.sansSemiBold,
-    fontSize: 14,
-    letterSpacing: 0.3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    elevation: 6,
   },
 });

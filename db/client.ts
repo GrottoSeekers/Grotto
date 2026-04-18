@@ -100,4 +100,13 @@ raw.execSync(`
   );
 `);
 
+try { raw.execSync('ALTER TABLE chat_messages ADD COLUMN attachment_type TEXT;'); } catch (_) {}
+try { raw.execSync('ALTER TABLE chat_messages ADD COLUMN attachment_uri TEXT;'); } catch (_) {}
+try { raw.execSync('ALTER TABLE chat_messages ADD COLUMN attachment_name TEXT;'); } catch (_) {}
+try { raw.execSync('ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0;'); } catch (_) {}
+try { raw.execSync('ALTER TABLE users ADD COLUMN email_verification_code TEXT;'); } catch (_) {}
+try { raw.execSync('ALTER TABLE users ADD COLUMN password_reset_code TEXT;'); } catch (_) {}
+// Backfill: only auto-verify accounts that pre-date the email verification feature (no code stored)
+raw.execSync('UPDATE users SET email_verified = 1 WHERE (email_verified IS NULL OR email_verified = 0) AND email_verification_code IS NULL;');
+
 export const db = drizzle(raw, { schema });

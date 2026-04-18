@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -15,6 +17,9 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { asc, eq } from 'drizzle-orm';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import { File, Paths } from 'expo-file-system';
 
 import { db } from '@/db/client';
 import { applications, chatMessages, listings, sits, users } from '@/db/schema';
@@ -69,6 +74,11 @@ export default function ChatScreen() {
   const [otherUser, setOtherUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
+  const [pendingAttachment, setPendingAttachment] = useState<{
+    uri: string;
+    type: 'image' | 'file';
+    name: string;
+  } | null>(null);
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -113,15 +123,27 @@ export default function ChatScreen() {
   }
 
   async function handleSend() {
-    if (!currentUser || !application || !inputText.trim() || sending) return;
-    setSending(true);
     const text = inputText.trim();
+    if (!currentUser || !application || (!text && !pendingAttachment) || sending) return;
+    setSending(true);
     setInputText('');
+    const attachment = pendingAttachment;
+    setPendingAttachment(null);
     try {
+      let savedUri = attachment?.uri ?? null;
+      if (attachment) {
+        const destFile = new File(Paths.document, `chat_${Date.now()}_${attachment.name}`);
+        const srcFile = new File(attachment.uri);
+        srcFile.copy(destFile);
+        savedUri = destFile.uri;
+      }
       const [msg] = await db.insert(chatMessages).values({
         applicationId: application.id,
         senderId: currentUser.id,
         body: text,
+        attachmentType: attachment?.type ?? null,
+        attachmentUri: savedUri,
+        attachmentName: attachment?.name ?? null,
       }).returning();
       setMessages(prev => [...prev, msg]);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
@@ -129,8 +151,41 @@ export default function ChatScreen() {
     } catch (e) {
       console.error(e);
       setInputText(text);
+      if (attachment) setPendingAttachment(attachment);
     } finally {
       setSending(false);
+    }
+  }
+
+  async function handlePickImage() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Allow photo access to send images.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Open Settings', onPress: () => Linking.openSettings() },
+      ]);
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+      allowsEditing: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      const name = asset.fileName ?? `photo_${Date.now()}.jpg`;
+      setPendingAttachment({ uri: asset.uri, type: 'image', name });
+    }
+  }
+
+  async function handlePickFile() {
+    const result = await DocumentPicker.getDocumentAsync({
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      setPendingAttachment({ uri: asset.uri, type: 'file', name: asset.name });
     }
   }
 
@@ -188,7 +243,11 @@ export default function ChatScreen() {
           <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
             <Ionicons name="chevron-back" size={20} color={GrottoTokens.textPrimary} />
           </Pressable>
-          <View style={styles.headerCenter}>
+          <Pressable
+            style={styles.headerCenter}
+            onPress={() => otherUser && router.push(`/user/${otherUser.id}`)}
+            hitSlop={4}
+          >
             {otherUser?.avatarUrl ? (
               <Image source={{ uri: otherUser.avatarUrl }} style={styles.headerAvatar} contentFit="cover" />
             ) : (
@@ -202,13 +261,17 @@ export default function ChatScreen() {
               </Text>
               <Text style={styles.headerSub} numberOfLines={1}>{listing.title}</Text>
             </View>
-          </View>
+            {otherUser && <Ionicons name="chevron-forward" size={14} color={GrottoTokens.textMuted} />}
+          </Pressable>
           <View style={{ width: 36 }} />
         </View>
 
         {/* ── Sit summary card ── */}
         {sit && (
-          <View style={styles.sitCard}>
+          <Pressable
+            style={({ pressed }) => [styles.sitCard, pressed && { opacity: 0.85 }]}
+            onPress={() => router.push(`/listing/${listing.id}`)}
+          >
             {listing.coverPhotoUrl ? (
               <Image source={{ uri: listing.coverPhotoUrl }} style={styles.sitThumb} contentFit="cover" />
             ) : (
@@ -227,7 +290,7 @@ export default function ChatScreen() {
                 {statusDisplay.label}
               </Text>
             </View>
-          </View>
+          </Pressable>
         )}
 
         {/* ── Owner actions (pending only) ── */}
@@ -275,8 +338,31 @@ export default function ChatScreen() {
           )}
         </ScrollView>
 
+        {/* ── Pending attachment preview ── */}
+        {pendingAttachment && (
+          <View style={styles.attachmentPreview}>
+            {pendingAttachment.type === 'image' ? (
+              <Image source={{ uri: pendingAttachment.uri }} style={styles.attachmentPreviewImg} contentFit="cover" />
+            ) : (
+              <View style={styles.attachmentPreviewFile}>
+                <Ionicons name="document-outline" size={22} color={GrottoTokens.gold} />
+                <Text style={styles.attachmentPreviewName} numberOfLines={1}>{pendingAttachment.name}</Text>
+              </View>
+            )}
+            <Pressable style={styles.attachmentRemove} onPress={() => setPendingAttachment(null)} hitSlop={8}>
+              <Ionicons name="close-circle" size={20} color={GrottoTokens.textMuted} />
+            </Pressable>
+          </View>
+        )}
+
         {/* ── Input bar ── */}
         <SafeAreaView edges={['bottom']} style={styles.inputBar}>
+          <Pressable style={styles.attachBtn} onPress={handlePickImage} hitSlop={4}>
+            <Ionicons name="image-outline" size={22} color={GrottoTokens.textSecondary} />
+          </Pressable>
+          <Pressable style={styles.attachBtn} onPress={handlePickFile} hitSlop={4}>
+            <Ionicons name="attach-outline" size={22} color={GrottoTokens.textSecondary} />
+          </Pressable>
           <TextInput
             style={styles.textInput}
             placeholder="Message…"
@@ -287,9 +373,9 @@ export default function ChatScreen() {
             maxLength={1000}
           />
           <Pressable
-            style={[styles.sendBtn, (!inputText.trim() || sending) && styles.sendBtnDisabled]}
+            style={[styles.sendBtn, (!inputText.trim() && !pendingAttachment || sending) && styles.sendBtnDisabled]}
             onPress={handleSend}
-            disabled={!inputText.trim() || sending}
+            disabled={(!inputText.trim() && !pendingAttachment) || sending}
           >
             {sending ? (
               <ActivityIndicator size="small" color={GrottoTokens.white} />
@@ -309,13 +395,56 @@ export default function ChatScreen() {
 // ─── Message bubble ───────────────────────────────────────────────────────────
 
 function MessageBubble({ msg, isMe }: { msg: ChatMessage; isMe: boolean }) {
+  const hasAttachment = !!msg.attachmentUri;
+  const isImageAttachment = msg.attachmentType === 'image';
+  const isFileAttachment = msg.attachmentType === 'file';
+
+  function openFile() {
+    if (msg.attachmentUri) Linking.openURL(msg.attachmentUri);
+  }
+
   return (
     <View style={[styles.bubbleWrap, isMe ? styles.bubbleWrapMe : styles.bubbleWrapThem]}>
-      <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
-        <Text style={[styles.bubbleText, isMe ? styles.bubbleTextMe : styles.bubbleTextThem]}>
-          {msg.body}
-        </Text>
-      </View>
+      {hasAttachment && isImageAttachment && (
+        <Pressable onPress={openFile}>
+          <Image
+            source={{ uri: msg.attachmentUri! }}
+            style={[styles.bubbleImage, isMe ? styles.bubbleImageMe : styles.bubbleImageThem]}
+            contentFit="cover"
+            transition={150}
+          />
+        </Pressable>
+      )}
+      {hasAttachment && isFileAttachment && (
+        <Pressable
+          style={[styles.fileAttachment, isMe ? styles.fileAttachmentMe : styles.fileAttachmentThem]}
+          onPress={openFile}
+        >
+          <Ionicons
+            name="document-outline"
+            size={20}
+            color={isMe ? GrottoTokens.white : GrottoTokens.gold}
+          />
+          <Text
+            style={[styles.fileAttachmentName, isMe ? styles.fileAttachmentNameMe : styles.fileAttachmentNameThem]}
+            numberOfLines={2}
+          >
+            {msg.attachmentName ?? 'File'}
+          </Text>
+          <Ionicons
+            name="download-outline"
+            size={16}
+            color={isMe ? 'rgba(255,255,255,0.7)' : GrottoTokens.textMuted}
+          />
+        </Pressable>
+      )}
+      {!!msg.body && (
+        <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem, hasAttachment && styles.bubbleWithAttachment]}>
+          <Text style={[styles.bubbleText, isMe ? styles.bubbleTextMe : styles.bubbleTextThem]}>
+            {msg.body}
+          </Text>
+        </View>
+      )}
       <Text style={[styles.bubbleTime, isMe ? styles.bubbleTimeMe : styles.bubbleTimeThem]}>
         {formatTime(msg.createdAt)}
       </Text>
@@ -525,10 +654,63 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     alignItems: 'flex-start',
   },
+  // ── Image attachment in bubble
+  bubbleImage: {
+    width: 200,
+    height: 150,
+    borderRadius: 14,
+    marginBottom: 2,
+  },
+  bubbleImageMe: {
+    borderBottomRightRadius: 4,
+  },
+  bubbleImageThem: {
+    borderBottomLeftRadius: 4,
+  },
+
+  // ── File attachment in bubble
+  fileAttachment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 2,
+    maxWidth: 240,
+  },
+  fileAttachmentMe: {
+    backgroundColor: GrottoTokens.gold,
+    borderBottomRightRadius: 4,
+  },
+  fileAttachmentThem: {
+    backgroundColor: GrottoTokens.surface,
+    borderWidth: 1,
+    borderColor: GrottoTokens.borderSubtle,
+    borderBottomLeftRadius: 4,
+  },
+  fileAttachmentName: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  fileAttachmentNameMe: {
+    fontFamily: FontFamily.sansMedium,
+    color: GrottoTokens.white,
+  },
+  fileAttachmentNameThem: {
+    fontFamily: FontFamily.sansMedium,
+    color: GrottoTokens.textPrimary,
+  },
+
   bubble: {
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 10,
+  },
+  bubbleWithAttachment: {
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
   },
   bubbleMe: {
     backgroundColor: GrottoTokens.gold,
@@ -566,6 +748,45 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
 
+  // ── Attachment preview
+  attachmentPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Layout.spacing.sm,
+    paddingHorizontal: Layout.spacing.md,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: GrottoTokens.borderSubtle,
+    backgroundColor: GrottoTokens.offWhite,
+  },
+  attachmentPreviewImg: {
+    width: 56,
+    height: 56,
+    borderRadius: Layout.radius.md,
+    backgroundColor: GrottoTokens.goldSubtle,
+  },
+  attachmentPreviewFile: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: GrottoTokens.white,
+    borderRadius: Layout.radius.md,
+    borderWidth: 1,
+    borderColor: GrottoTokens.borderSubtle,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  attachmentPreviewName: {
+    flex: 1,
+    fontFamily: FontFamily.sansRegular,
+    fontSize: 13,
+    color: GrottoTokens.textSecondary,
+  },
+  attachmentRemove: {
+    padding: 2,
+  },
+
   // ── Input bar
   inputBar: {
     flexDirection: 'row',
@@ -577,6 +798,12 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: GrottoTokens.borderSubtle,
     backgroundColor: GrottoTokens.white,
+  },
+  attachBtn: {
+    width: 36,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   textInput: {
     flex: 1,
