@@ -24,6 +24,9 @@ try { raw.execSync('ALTER TABLE users ADD COLUMN gallery_photos TEXT;'); } catch
 try { raw.execSync('ALTER TABLE users ADD COLUMN occupation TEXT;'); } catch (_) {}
 try { raw.execSync('ALTER TABLE users ADD COLUMN location TEXT;'); } catch (_) {}
 try { raw.execSync('ALTER TABLE listings ADD COLUMN pet_photos TEXT;'); } catch (_) {}
+try { raw.execSync("ALTER TABLE listings ADD COLUMN listing_status TEXT DEFAULT 'active';"); } catch (_) {}
+// Backfill any rows that pre-date the column
+raw.execSync("UPDATE listings SET listing_status = 'active' WHERE listing_status IS NULL;");
 raw.execSync('CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users (email);');
 raw.execSync(`
   CREATE TABLE IF NOT EXISTS testimonials (
@@ -56,6 +59,31 @@ raw.execSync(`
     listing_id INTEGER NOT NULL REFERENCES listings(id),
     "addedAt" TEXT DEFAULT (datetime('now')),
     notes TEXT
+  );
+`);
+
+raw.execSync(`
+  CREATE TABLE IF NOT EXISTS applications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    sit_id INTEGER NOT NULL REFERENCES sits(id),
+    listing_id INTEGER NOT NULL REFERENCES listings(id),
+    sitter_id INTEGER NOT NULL REFERENCES users(id),
+    message TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    "createdAt" TEXT DEFAULT (datetime('now'))
+  );
+`);
+
+try { raw.execSync('ALTER TABLE applications ADD COLUMN archived_by_sitter INTEGER DEFAULT 0;'); } catch (_) {}
+try { raw.execSync('ALTER TABLE applications ADD COLUMN archived_by_owner INTEGER DEFAULT 0;'); } catch (_) {}
+
+raw.execSync(`
+  CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    application_id INTEGER NOT NULL REFERENCES applications(id),
+    sender_id INTEGER NOT NULL REFERENCES users(id),
+    body TEXT NOT NULL,
+    "createdAt" TEXT DEFAULT (datetime('now'))
   );
 `);
 

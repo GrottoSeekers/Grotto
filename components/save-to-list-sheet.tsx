@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -50,6 +52,7 @@ export function SaveToListSheet({
   const [newEmoji, setNewEmoji]         = useState('🏡');
   const [saving, setSaving]             = useState(false);
   const inputRef                        = useRef<TextInput>(null);
+  const scrollRef                       = useRef<ScrollView>(null);
 
   useEffect(() => {
     if (visible && currentUser) {
@@ -85,14 +88,14 @@ export function SaveToListSheet({
       setSavedInListIds((prev) => {
         const next = new Set(prev);
         next.delete(listId);
-        onSavedChange?.(next.size > 0);
+        setTimeout(() => onSavedChange?.(next.size > 0), 0);
         return next;
       });
     } else {
       await db.insert(savedListItems).values({ listId, listingId });
       setSavedInListIds((prev) => {
         const next = new Set([...prev, listId]);
-        onSavedChange?.(true);
+        setTimeout(() => onSavedChange?.(true), 0);
         return next;
       });
     }
@@ -117,7 +120,7 @@ export function SaveToListSheet({
       setLists(freshLists);
       setSavedInListIds((prev) => {
         const next = new Set([...prev, newList.id]);
-        onSavedChange?.(true);
+        setTimeout(() => onSavedChange?.(true), 0);
         return next;
       });
     }
@@ -156,6 +159,9 @@ export function SaveToListSheet({
       <View style={styles.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
         <SafeAreaView edges={['bottom']} style={styles.sheet}>
           {/* Handle */}
           <View style={styles.handle} />
@@ -171,9 +177,11 @@ export function SaveToListSheet({
           <Text style={styles.listingLabel} numberOfLines={1}>{listingTitle}</Text>
 
           <ScrollView
+            ref={scrollRef}
             showsVerticalScrollIndicator={false}
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
           >
             {/* Existing lists */}
             {lists.map((list) => {
@@ -201,7 +209,10 @@ export function SaveToListSheet({
                 style={({ pressed }) => [styles.listRow, pressed && styles.listRowPressed]}
                 onPress={() => {
                   setShowCreate(true);
-                  setTimeout(() => inputRef.current?.focus(), 100);
+                  setTimeout(() => {
+                    inputRef.current?.focus();
+                    scrollRef.current?.scrollToEnd({ animated: true });
+                  }, 150);
                 }}
               >
                 <View style={[styles.listEmoji, styles.listEmojiAdd]}>
@@ -257,6 +268,7 @@ export function SaveToListSheet({
             <View style={{ height: 8 }} />
           </ScrollView>
         </SafeAreaView>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
@@ -274,8 +286,6 @@ const styles = StyleSheet.create({
     backgroundColor: GrottoTokens.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '80%',
-    overflow: 'hidden',
   },
   handle: {
     width: 36,

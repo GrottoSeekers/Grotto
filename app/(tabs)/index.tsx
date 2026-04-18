@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Region } from 'react-native-maps';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ListingCard } from '@/components/listing-card';
@@ -19,6 +19,7 @@ import type { FilterState } from '@/components/filter-sheet';
 import { GrottoTokens, FontFamily } from '@/constants/theme';
 import { Layout } from '@/constants/layout';
 import { useDiscoveryStore } from '@/store/discovery-store';
+import { eq } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { listings, sits } from '@/db/schema';
 import type { Listing, Sit } from '@/db/schema';
@@ -81,29 +82,45 @@ export default function DiscoveryScreen() {
   const [searchModalVisible, setSearchModalVisible] = useState(false);
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
   const mapRef = useRef<MapView>(null);
+  // Suppress "Redo search" after programmatic camera moves (fly-to-search, user location)
+  const isProgrammaticMove = useRef(false);
+  // Track user location for auto-fly on first fix
+  const userCoordRef  = useRef<{ latitude: number; longitude: number } | null>(null);
+  const hasFlewToUser = useRef(false);
+  // Fly-to queued while map is unmounted (list mode) — executed in onMapReady
+  const onMapReadyFlyRef = useRef<Listing[] | null>(null);
 
-  // Load listings + upcoming sits
-  useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    Promise.all([
-      db.select().from(listings),
-      db.select().from(sits),
-    ]).then(([listingRows, sitRows]) => {
-      setListings(listingRows);
-      setUpcomingSits(sitRows.filter((s) => s.status === 'open' && s.startDate >= today));
-    }).catch(console.error);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Load listings + upcoming sits (re-runs on focus so new listings appear immediately)
+  useFocusEffect(
+    useCallback(() => {
+      const today = new Date().toISOString().slice(0, 10);
+      Promise.all([
+        db.select().from(listings).where(eq(listings.listingStatus, 'active')),
+        db.select().from(sits),
+      ]).then(([listingRows, sitRows]) => {
+        setListings(listingRows);
+        setUpcomingSits(sitRows.filter((s) => s.status === 'open' && s.startDate >= today));
+      }).catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+  );
 
-  // Unique city/country suggestions for search modal
+
+  // Structured location suggestions for search modal
   const locationSuggestions = useMemo(() => {
-    const seen = new Set<string>();
-    const out: string[] = [];
+    const countries = new Map<string, { label: string; sublabel: string; type: 'country' }>();
+    const cities = new Map<string, { label: string; sublabel: string; type: 'city' }>();
     for (const l of storedListings) {
-      if (l.city && !seen.has(l.city)) { seen.add(l.city); out.push(l.city); }
-      if (l.country && !seen.has(l.country)) { seen.add(l.country); out.push(l.country); }
+      if (l.country && !countries.has(l.country)) {
+        countries.set(l.country, { label: l.country, sublabel: 'Country', type: 'country' });
+      }
+      if (l.city && !cities.has(l.city)) {
+        cities.set(l.city, { label: l.city, sublabel: l.country ?? '', type: 'city' });
+      }
     }
-    return out.sort();
+    const sortedCountries = [...countries.values()].sort((a, b) => a.label.localeCompare(b.label));
+    const sortedCities = [...cities.values()].sort((a, b) => a.label.localeCompare(b.label));
+    return [...sortedCountries, ...sortedCities];
   }, [storedListings]);
 
   function getNextSit(listingId: number): Sit | null {
@@ -191,6 +208,18 @@ export default function DiscoveryScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storedListings, upcomingSits, searchQuery, dateFrom, dateTo, petFilters, minNights, amenityFilters, mapRegion, sortBy]);
 
+  // ── Viewport-visible listings (for map count pill) ───────────────────────────
+  const mapVisibleListings = useMemo(() => {
+    const { latitude, longitude, latitudeDelta, longitudeDelta } = currentRegion;
+    return filteredListings.filter(
+      (l) =>
+        l.latitude  >= latitude  - latitudeDelta  / 2 &&
+        l.latitude  <= latitude  + latitudeDelta  / 2 &&
+        l.longitude >= longitude - longitudeDelta / 2 &&
+        l.longitude <= longitude + longitudeDelta / 2,
+    );
+  }, [filteredListings, currentRegion]);
+
   // ── Active filter count (for badge) ──────────────────────────────────────────
   const activeFilterCount = [
     sortBy !== 'recommended',
@@ -201,9 +230,60 @@ export default function DiscoveryScreen() {
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
 
+  // ── Fly map to a set of listings (reliable manual bounds calculation) ─────────
+  function flyToListings(items: Listing[]) {
+    if (!mapRef.current || items.length === 0) return;
+    isProgrammaticMove.current = true;
+    if (items.length === 1) {
+      mapRef.current.animateToRegion(
+        { latitude: items[0].latitude, longitude: items[0].longitude, latitudeDelta: 0.8, longitudeDelta: 0.8 },
+        800,
+      );
+    } else {
+      const lats = items.map((l) => l.latitude);
+      const lngs = items.map((l) => l.longitude);
+      const minLat = Math.min(...lats);
+      const maxLat = Math.max(...lats);
+      const minLng = Math.min(...lngs);
+      const maxLng = Math.max(...lngs);
+      mapRef.current.animateToRegion(
+        {
+          latitude:       (minLat + maxLat) / 2,
+          longitude:      (minLng + maxLng) / 2,
+          latitudeDelta:  Math.max((maxLat - minLat) * 1.6, 0.5),
+          longitudeDelta: Math.max((maxLng - minLng) * 1.6, 0.5),
+        },
+        800,
+      );
+    }
+  }
+
   function handleSearch(location: string, from: string | null, to: string | null) {
     setSearchQuery(location);
     setDateRange(from, to);
+    setMapRegion(null);
+    setMapMoved(false);
+
+    if (!location.trim()) return;
+
+    const q = location.toLowerCase();
+    const matching = storedListings.filter(
+      (l) =>
+        l.title.toLowerCase().includes(q) ||
+        (l.city  ?? '').toLowerCase().includes(q) ||
+        (l.country ?? '').toLowerCase().includes(q),
+    );
+
+    if (matching.length === 0) return;
+
+    if (viewMode === 'map') {
+      // Map is already mounted — fly directly
+      flyToListings(matching);
+    } else {
+      // Switch to map; onMapReady will fire the fly once MapView has mounted
+      onMapReadyFlyRef.current = matching;
+      setViewMode('map');
+    }
   }
 
   function handleApplyFilters(filters: FilterState) {
@@ -213,14 +293,40 @@ export default function DiscoveryScreen() {
     setAmenityFilters(filters.amenityFilters);
   }
 
-  function handleSearchThisArea() {
+  // "Search this area" — pins the current viewport as the region filter so
+  // filteredListings tightens to only what's visible; text search is preserved
+  function handleRedoSearch() {
     setMapRegion(currentRegion);
     setMapMoved(false);
   }
 
   function handleClearMapRegion() {
-    setMapRegion(WORLD_REGION);
+    setMapRegion(null);
     setMapMoved(false);
+  }
+
+  function handleUserLocationChange(event: { nativeEvent: { coordinate?: { latitude: number; longitude: number } } }) {
+    const coord = event.nativeEvent.coordinate;
+    if (!coord) return;
+    userCoordRef.current = { latitude: coord.latitude, longitude: coord.longitude };
+    if (!hasFlewToUser.current && mapRef.current) {
+      hasFlewToUser.current = true;
+      isProgrammaticMove.current = true;
+      mapRef.current.animateToRegion(
+        { latitude: coord.latitude, longitude: coord.longitude, latitudeDelta: 1.5, longitudeDelta: 1.5 },
+        800,
+      );
+    }
+  }
+
+  function handleLocateMe() {
+    if (userCoordRef.current && mapRef.current) {
+      isProgrammaticMove.current = true;
+      mapRef.current.animateToRegion(
+        { ...userCoordRef.current, latitudeDelta: 0.8, longitudeDelta: 0.8 },
+        600,
+      );
+    }
   }
 
   const datesLabel = getDatesLabel(dateFrom, dateTo);
@@ -321,10 +427,25 @@ export default function DiscoveryScreen() {
           <MapView
             ref={mapRef}
             style={StyleSheet.absoluteFill}
-            initialRegion={WORLD_REGION}
+            initialRegion={currentRegion}
+            showsUserLocation
+            showsMyLocationButton={false}
+            onMapReady={() => {
+              if (onMapReadyFlyRef.current) {
+                const items = onMapReadyFlyRef.current;
+                onMapReadyFlyRef.current = null;
+                flyToListings(items);
+              }
+            }}
+            onUserLocationChange={handleUserLocationChange}
             onRegionChangeComplete={(region) => {
               setCurrentRegion(region);
-              setMapMoved(true);
+              if (isProgrammaticMove.current) {
+                // Programmatic fly-to (search / locate me) — don't show redo pill
+                isProgrammaticMove.current = false;
+              } else {
+                setMapMoved(true);
+              }
             }}
           >
             {filteredListings.map((listing) => (
@@ -338,28 +459,37 @@ export default function DiscoveryScreen() {
             ))}
           </MapView>
 
-          {mapMoved && !mapRegion && (
-            <Pressable style={styles.mapPill} onPress={handleSearchThisArea}>
-              <Ionicons name="search" size={13} color={GrottoTokens.textPrimary} />
+          {/* Count pill — only counts what's visible in the current viewport */}
+          <View style={styles.mapCountPill}>
+            <Ionicons name="home-outline" size={13} color={GrottoTokens.textSecondary} />
+            <Text style={styles.mapCountText}>
+              {mapVisibleListings.length} sit{mapVisibleListings.length !== 1 ? 's' : ''} found
+            </Text>
+          </View>
+
+          {/* "Redo search here" — appears after manual pan/zoom */}
+          {mapMoved && (
+            <Pressable style={styles.mapPill} onPress={handleRedoSearch}>
+              <Ionicons name="search" size={13} color={GrottoTokens.white} />
               <Text style={styles.mapPillText}>Search this area</Text>
             </Pressable>
           )}
-          {mapRegion && (
-            <Pressable style={[styles.mapPill, styles.mapPillActive]} onPress={handleClearMapRegion}>
-              <Ionicons name="navigate" size={13} color={GrottoTokens.gold} />
-              <Text style={[styles.mapPillText, styles.mapPillTextActive]}>
-                {filteredListings.length} in this area · Clear
-              </Text>
-              <Ionicons name="close" size={13} color={GrottoTokens.gold} />
-            </Pressable>
-          )}
+
+          {/* Locate me button */}
+          <Pressable style={styles.locateBtn} onPress={handleLocateMe}>
+            <Ionicons name="locate" size={20} color={GrottoTokens.textPrimary} />
+          </Pressable>
         </View>
       )}
 
       {/* Floating list/map toggle */}
       <Pressable
         style={styles.floatingToggle}
-        onPress={() => setViewMode(viewMode === 'list' ? 'map' : 'list')}
+        onPress={() => {
+          const next = viewMode === 'list' ? 'map' : 'list';
+          if (next === 'map') setMapMoved(false);
+          setViewMode(next);
+        }}
       >
         <Ionicons
           name={viewMode === 'list' ? 'map' : 'list'}
@@ -560,34 +690,69 @@ const styles = StyleSheet.create({
   mapContainer: {
     flex: 1,
   },
-  mapPill: {
+  mapCountPill: {
     position: 'absolute',
     top: Layout.spacing.md,
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Layout.spacing.xs,
+    gap: 5,
     backgroundColor: GrottoTokens.white,
     borderRadius: Layout.radius.full,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: GrottoTokens.borderSubtle,
+  },
+  mapCountText: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 12,
+    color: GrottoTokens.textSecondary,
+  },
+  mapPill: {
+    position: 'absolute',
+    bottom: Layout.tabBarHeight + 72,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Layout.spacing.xs,
+    backgroundColor: GrottoTokens.textPrimary,
+    borderRadius: Layout.radius.full,
+    paddingVertical: 11,
+    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  mapPillText: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 14,
+    color: GrottoTokens.white,
+  },
+  locateBtn: {
+    position: 'absolute',
+    bottom: Layout.tabBarHeight + Layout.spacing.md,
+    right: Layout.spacing.md,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: GrottoTokens.white,
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 6,
     elevation: 4,
-  },
-  mapPillActive: {
-    borderWidth: 1.5,
-    borderColor: GrottoTokens.gold,
-  },
-  mapPillText: {
-    fontFamily: FontFamily.sansMedium,
-    fontSize: 13,
-    color: GrottoTokens.textPrimary,
-  },
-  mapPillTextActive: {
-    color: GrottoTokens.gold,
+    borderWidth: 1,
+    borderColor: GrottoTokens.borderSubtle,
   },
 
   // ── Floating toggle

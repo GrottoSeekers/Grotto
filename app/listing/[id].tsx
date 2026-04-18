@@ -6,6 +6,7 @@ import {
   NativeSyntheticEvent,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -15,7 +16,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { eq } from 'drizzle-orm';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Circle, Marker } from 'react-native-maps';
 
 import { db } from '@/db/client';
 import { listings, sits, users } from '@/db/schema';
@@ -24,6 +25,7 @@ import { SaveToListSheet } from '@/components/save-to-list-sheet';
 import { ReviewsSheet } from '@/components/reviews-sheet';
 import { GrottoTokens, FontFamily } from '@/constants/theme';
 import { Layout } from '@/constants/layout';
+import { useSessionStore } from '@/store/session-store';
 
 interface PetDetail {
   name: string;
@@ -85,6 +87,7 @@ export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { currentUser } = useSessionStore();
 
   const [listing, setListing] = useState<Listing | null>(null);
   const [owner, setOwner] = useState<User | null>(null);
@@ -169,6 +172,7 @@ export default function ListingDetailScreen() {
   }
 
   const nextSit = openSits[0] ?? null;
+  const isOwner = !!currentUser && currentUser.id === listing.ownerId;
 
   return (
     <View style={styles.root}>
@@ -212,7 +216,19 @@ export default function ListingDetailScreen() {
               <Ionicons name="chevron-back" size={18} color={GrottoTokens.textPrimary} />
             </Pressable>
             <View style={styles.navRight}>
-              <Pressable style={styles.navBtn} hitSlop={8}>
+              <Pressable
+                style={styles.navBtn}
+                hitSlop={8}
+                onPress={() => {
+                  const location = [listing.city, listing.country].filter(Boolean).join(', ');
+                  Share.share({
+                    title: listing.title,
+                    message: location
+                      ? `${listing.title} — ${location}\n\nFound on Grotto`
+                      : `${listing.title}\n\nFound on Grotto`,
+                  });
+                }}
+              >
                 <Ionicons name="share-outline" size={18} color={GrottoTokens.textPrimary} />
               </Pressable>
               <Pressable
@@ -447,14 +463,18 @@ export default function ListingDetailScreen() {
           )}
 
           {/* ── Available dates ── */}
-          {openSits.length > 0 && (
+          {!isOwner && openSits.length > 0 && (
             <>
               <Text style={styles.sectionTitle}>Available dates</Text>
               <View style={styles.datesList}>
                 {openSits.map((sit) => {
                   const nights = nightsBetween(sit.startDate, sit.endDate);
                   return (
-                    <View key={sit.id} style={styles.dateCard}>
+                    <Pressable
+                      key={sit.id}
+                      style={({ pressed }) => [styles.dateCard, pressed && { opacity: 0.75 }]}
+                      onPress={() => router.push(`/listing/apply/${listing.id}?sitId=${sit.id}`)}
+                    >
                       <View style={styles.dateCardIcon}>
                         <Ionicons name="calendar-outline" size={20} color={GrottoTokens.gold} />
                       </View>
@@ -467,7 +487,7 @@ export default function ListingDetailScreen() {
                         </Text>
                       </View>
                       <Ionicons name="chevron-forward" size={16} color={GrottoTokens.textMuted} />
-                    </View>
+                    </Pressable>
                   );
                 })}
               </View>
@@ -490,12 +510,31 @@ export default function ListingDetailScreen() {
               initialRegion={{
                 latitude: listing.latitude,
                 longitude: listing.longitude,
-                latitudeDelta: 0.05,
-                longitudeDelta: 0.05,
+                latitudeDelta: 0.06,
+                longitudeDelta: 0.06,
               }}
             >
-              <Marker coordinate={{ latitude: listing.latitude, longitude: listing.longitude }} />
+              {/* Show a radius circle rather than exact pin for sitter privacy */}
+              <Circle
+                center={{ latitude: listing.latitude, longitude: listing.longitude }}
+                radius={800}
+                fillColor="rgba(201,168,76,0.15)"
+                strokeColor={GrottoTokens.gold}
+                strokeWidth={1.5}
+              />
+              <Marker
+                coordinate={{ latitude: listing.latitude, longitude: listing.longitude }}
+                anchor={{ x: 0.5, y: 0.5 }}
+              >
+                <View style={styles.mapDot} />
+              </Marker>
             </MapView>
+          </View>
+          <View style={styles.mapDisclaimer}>
+            <Ionicons name="location-outline" size={13} color={GrottoTokens.textMuted} />
+            <Text style={styles.mapDisclaimerText}>
+              Approximate area shown. Exact address shared once a sit is confirmed.
+            </Text>
           </View>
 
           <View style={styles.divider} />
@@ -591,25 +630,44 @@ export default function ListingDetailScreen() {
       />
 
       {/* ── Sticky bottom bar ────────────────────────────────── */}
-      <SafeAreaView edges={['bottom']} style={styles.stickyBar}>
-        <View style={styles.stickyInner}>
-          <View style={styles.stickyLeft}>
-            {nextSit ? (
-              <>
-                <Text style={styles.stickyLabel}>Next available</Text>
-                <Text style={styles.stickyDate}>{formatDate(nextSit.startDate)}</Text>
-              </>
-            ) : (
-              <Text style={styles.stickyLabel}>Open to applications</Text>
-            )}
+      {isOwner ? (
+        <SafeAreaView edges={['bottom']} style={styles.stickyBar}>
+          <View style={styles.stickyInner}>
+            <View style={styles.ownerBadgeRow}>
+              <Ionicons name="home" size={16} color={GrottoTokens.gold} />
+              <Text style={styles.ownerBadgeText}>Your listing</Text>
+            </View>
+            <Pressable
+              style={({ pressed }) => [styles.manageBtn, pressed && styles.ctaBtnPressed]}
+              onPress={() => router.push(`/listing/manage/${listing.id}`)}
+            >
+              <Ionicons name="create-outline" size={16} color={GrottoTokens.textPrimary} />
+              <Text style={styles.manageBtnText}>Manage</Text>
+            </Pressable>
           </View>
-          <Pressable
-            style={({ pressed }) => [styles.ctaBtn, pressed && styles.ctaBtnPressed]}
-          >
-            <Text style={styles.ctaText}>Apply to Sit</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      ) : (
+        <SafeAreaView edges={['bottom']} style={styles.stickyBar}>
+          <View style={styles.stickyInner}>
+            <View style={styles.stickyLeft}>
+              {nextSit ? (
+                <>
+                  <Text style={styles.stickyLabel}>Next available</Text>
+                  <Text style={styles.stickyDate}>{formatDate(nextSit.startDate)}</Text>
+                </>
+              ) : (
+                <Text style={styles.stickyLabel}>Open to applications</Text>
+              )}
+            </View>
+            <Pressable
+              style={({ pressed }) => [styles.ctaBtn, pressed && styles.ctaBtnPressed]}
+              onPress={() => router.push(`/listing/apply/${listing.id}`)}
+            >
+              <Text style={styles.ctaText}>Apply to Sit</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      )}
     </View>
   );
 }
@@ -1093,5 +1151,61 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: GrottoTokens.white,
     letterSpacing: 0.2,
+  },
+
+  // ── Owner bar
+  ownerBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Layout.spacing.sm,
+    flex: 1,
+  },
+  ownerBadgeText: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    color: GrottoTokens.gold,
+  },
+  manageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Layout.spacing.xs,
+    borderWidth: 1.5,
+    borderColor: GrottoTokens.textPrimary,
+    borderRadius: Layout.radius.full,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  manageBtnText: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 14,
+    color: GrottoTokens.textPrimary,
+  },
+
+  // ── Map
+  mapDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: GrottoTokens.gold,
+    borderWidth: 2.5,
+    borderColor: GrottoTokens.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  mapDisclaimer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: Layout.spacing.sm,
+  },
+  mapDisclaimerText: {
+    fontFamily: FontFamily.sansRegular,
+    fontSize: 12,
+    color: GrottoTokens.textMuted,
+    flex: 1,
+    lineHeight: 17,
   },
 });

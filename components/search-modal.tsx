@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Dimensions,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -58,13 +60,19 @@ function dayState(
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
+export interface LocationSuggestion {
+  label: string;
+  sublabel: string;
+  type: 'city' | 'country';
+}
+
 interface Props {
   visible: boolean;
   onClose: () => void;
   initialLocation: string;
   initialDateFrom: string | null;
   initialDateTo: string | null;
-  suggestions: string[];
+  suggestions: LocationSuggestion[];
   onSearch: (location: string, dateFrom: string|null, dateTo: string|null) => void;
 }
 
@@ -108,12 +116,22 @@ export function SearchModal({
 
   const cells = calendarCells(viewYear, viewMonth);
 
-  const filteredSuggestions = useMemo(
-    () => suggestions
-      .filter(s => !location.trim() || s.toLowerCase().includes(location.toLowerCase()))
-      .slice(0, 10),
-    [suggestions, location],
-  );
+  const [inputFocused, setInputFocused] = useState(false);
+
+  const filteredSuggestions = useMemo(() => {
+    const q = location.trim().toLowerCase();
+    if (!q) return suggestions.slice(0, 8);
+    const results = suggestions.filter(s =>
+      s.label.toLowerCase().includes(q) || s.sublabel.toLowerCase().includes(q)
+    );
+    // Sort: exact start-of-word matches first
+    results.sort((a, b) => {
+      const aStarts = a.label.toLowerCase().startsWith(q) ? 0 : 1;
+      const bStarts = b.label.toLowerCase().startsWith(q) ? 0 : 1;
+      return aStarts - bStarts;
+    });
+    return results.slice(0, 8);
+  }, [suggestions, location]);
 
   function handleDayPress(date: Date) {
     if (date < todayStart) return;
@@ -171,6 +189,11 @@ export function SearchModal({
           </Pressable>
         </View>
 
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
         <ScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -179,14 +202,16 @@ export function SearchModal({
           {/* ── Where section ── */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Where?</Text>
-            <View style={styles.locationInputRow}>
-              <Ionicons name="search" size={18} color={GrottoTokens.textMuted} />
+            <View style={[styles.locationInputRow, inputFocused && styles.locationInputRowFocused]}>
+              <Ionicons name="search" size={18} color={inputFocused ? GrottoTokens.gold : GrottoTokens.textMuted} />
               <TextInput
                 style={styles.locationInput}
                 placeholder="Search destinations..."
                 placeholderTextColor={GrottoTokens.textMuted}
                 value={location}
                 onChangeText={setLocation}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
                 autoCorrect={false}
                 autoCapitalize="words"
                 returnKeyType="search"
@@ -199,34 +224,58 @@ export function SearchModal({
               )}
             </View>
 
-            {/* Location suggestions */}
-            {filteredSuggestions.length > 0 && (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.suggestionsScroll}
-                contentContainerStyle={styles.suggestionsRow}
-              >
-                {filteredSuggestions.map((s) => {
-                  const active = location === s;
+            {/* Location suggestions dropdown */}
+            {(inputFocused || location.length > 0) && filteredSuggestions.length > 0 && (
+              <View style={styles.suggestionsDropdown}>
+                {!location.trim() && (
+                  <Text style={styles.suggestionsHeader}>Suggested destinations</Text>
+                )}
+                {filteredSuggestions.map((s, i) => {
+                  const active = location === s.label;
+                  const isLast = i === filteredSuggestions.length - 1;
                   return (
                     <Pressable
-                      key={s}
-                      style={[styles.suggestionChip, active && styles.suggestionChipActive]}
-                      onPress={() => setLocation(s)}
+                      key={`${s.type}-${s.label}`}
+                      style={({ pressed }) => [
+                        styles.suggestionRow,
+                        !isLast && styles.suggestionRowBorder,
+                        active && styles.suggestionRowActive,
+                        pressed && styles.suggestionRowPressed,
+                      ]}
+                      onPress={() => {
+                        // Immediately search and close — no need to press the Search button
+                        onSearch(
+                          s.label,
+                          dateStart ? toISO(dateStart) : null,
+                          dateEnd   ? toISO(dateEnd)   : null,
+                        );
+                        onClose();
+                      }}
                     >
-                      <Ionicons
-                        name="location-outline"
-                        size={12}
-                        color={active ? GrottoTokens.white : GrottoTokens.textSecondary}
-                      />
-                      <Text style={[styles.suggestionText, active && styles.suggestionTextActive]}>
-                        {s}
-                      </Text>
+                      <View style={[styles.suggestionIcon, active && styles.suggestionIconActive]}>
+                        <Ionicons
+                          name={s.type === 'country' ? 'globe-outline' : 'location-outline'}
+                          size={16}
+                          color={active ? GrottoTokens.white : GrottoTokens.textSecondary}
+                        />
+                      </View>
+                      <View style={styles.suggestionTextWrap}>
+                        <Text style={[styles.suggestionLabel, active && styles.suggestionLabelActive]}>
+                          {s.label}
+                        </Text>
+                        {s.sublabel ? (
+                          <Text style={[styles.suggestionSublabel, active && styles.suggestionSublabelActive]}>
+                            {s.sublabel}
+                          </Text>
+                        ) : null}
+                      </View>
+                      {active && (
+                        <Ionicons name="checkmark" size={16} color={GrottoTokens.gold} />
+                      )}
                     </Pressable>
                   );
                 })}
-              </ScrollView>
+              </View>
             )}
           </View>
 
@@ -339,6 +388,7 @@ export function SearchModal({
           {/* Spacer for bottom bar */}
           <View style={{ height: 90 }} />
         </ScrollView>
+        </KeyboardAvoidingView>
 
         {/* ── Bottom actions ── */}
         <SafeAreaView edges={['bottom']} style={styles.bottomBar}>
@@ -423,8 +473,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Layout.spacing.md,
     paddingVertical: 14,
     gap: Layout.spacing.sm,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: GrottoTokens.borderSubtle,
+  },
+  locationInputRowFocused: {
+    borderColor: GrottoTokens.gold,
+    backgroundColor: GrottoTokens.white,
   },
   locationInput: {
     flex: 1,
@@ -434,35 +488,81 @@ const styles = StyleSheet.create({
     padding: 0,
     margin: 0,
   },
-  suggestionsScroll: {
-    marginTop: Layout.spacing.md,
+
+  // ── Suggestions dropdown
+  suggestionsDropdown: {
+    marginTop: Layout.spacing.sm,
+    backgroundColor: GrottoTokens.white,
+    borderRadius: Layout.radius.xl,
+    borderWidth: 1,
+    borderColor: GrottoTokens.borderSubtle,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  suggestionsRow: {
-    gap: Layout.spacing.sm,
-    paddingRight: Layout.spacing.md,
+  suggestionsHeader: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 11,
+    color: GrottoTokens.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    paddingHorizontal: Layout.spacing.md,
+    paddingTop: 12,
+    paddingBottom: 6,
   },
-  suggestionChip: {
+  suggestionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: Layout.radius.full,
+    paddingHorizontal: Layout.spacing.md,
+    paddingVertical: 13,
+    gap: Layout.spacing.md,
+  },
+  suggestionRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: GrottoTokens.borderSubtle,
+  },
+  suggestionRowActive: {
+    backgroundColor: GrottoTokens.offWhite,
+  },
+  suggestionRowPressed: {
     backgroundColor: GrottoTokens.surface,
+  },
+  suggestionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: GrottoTokens.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: GrottoTokens.borderSubtle,
   },
-  suggestionChipActive: {
+  suggestionIconActive: {
     backgroundColor: GrottoTokens.gold,
     borderColor: GrottoTokens.gold,
   },
-  suggestionText: {
-    fontFamily: FontFamily.sansMedium,
-    fontSize: 13,
-    color: GrottoTokens.textSecondary,
+  suggestionTextWrap: {
+    flex: 1,
+    gap: 1,
   },
-  suggestionTextActive: {
-    color: GrottoTokens.white,
+  suggestionLabel: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 15,
+    color: GrottoTokens.textPrimary,
+  },
+  suggestionLabelActive: {
+    fontFamily: FontFamily.sansSemiBold,
+  },
+  suggestionSublabel: {
+    fontFamily: FontFamily.sansRegular,
+    fontSize: 12,
+    color: GrottoTokens.textMuted,
+  },
+  suggestionSublabelActive: {
+    color: GrottoTokens.textSecondary,
   },
 
   // ── Date range display

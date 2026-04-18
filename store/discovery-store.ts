@@ -35,7 +35,7 @@ interface DiscoveryStore {
   setPetFilters: (filters: string[]) => void;
   setMinNights: (nights: number) => void;
   setAmenityFilters: (filters: string[]) => void;
-  setMapRegion: (region: MapRegion) => void;
+  setMapRegion: (region: MapRegion | null) => void;
   setListings: (listings: Listing[]) => void;
   setSelectedListingId: (id: number | null) => void;
   clearFilters: () => void;
@@ -71,5 +71,6 @@ export const useDiscoveryStore = create<DiscoveryStore>((set) => ({
     petFilters: [],
     minNights: 0,
     amenityFilters: [],
+    mapRegion: null,
   }),
 }));

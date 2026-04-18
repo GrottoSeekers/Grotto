@@ -52,6 +52,8 @@ export const listings = sqliteTable('listings', {
   // JSON array of { name, breed, age?, photoUrl? }
   petPhotos: text('pet_photos'),
   isActive: integer('is_active').default(1),
+  // 'active' | 'draft' | 'inactive'
+  listingStatus: text('listing_status').default('active'),
   createdAt: timestamp(),
 });
 
@@ -202,6 +204,31 @@ export const authSessions = sqliteTable('auth_sessions', {
   createdAt: timestamp(),
 });
 
+// ─── Applications ─────────────────────────────────────────────────────────────
+export const applications = sqliteTable('applications', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  sitId: integer('sit_id').references(() => sits.id).notNull(),
+  listingId: integer('listing_id').references(() => listings.id).notNull(),
+  sitterId: integer('sitter_id').references(() => users.id).notNull(),
+  message: text(),
+  // 'pending' | 'accepted' | 'declined' | 'withdrawn'
+  status: text().notNull().default('pending'),
+  // 1 = sitter has archived this thread
+  archivedBySitter: integer('archived_by_sitter').default(0),
+  // 1 = owner has archived this thread
+  archivedByOwner: integer('archived_by_owner').default(0),
+  createdAt: timestamp(),
+});
+
+// ─── Chat Messages ────────────────────────────────────────────────────────────
+export const chatMessages = sqliteTable('chat_messages', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  applicationId: integer('application_id').references(() => applications.id).notNull(),
+  senderId: integer('sender_id').references(() => users.id).notNull(),
+  body: text().notNull(),
+  createdAt: timestamp(),
+});
+
 // ─── Type exports ─────────────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
 export type Listing = typeof listings.$inferSelect;
@@ -215,3 +242,5 @@ export type Boost = typeof boosts.$inferSelect;
 export type BoostDefinition = typeof boostDefinitions.$inferSelect;
 export type Testimonial = typeof testimonials.$inferSelect;
 export type Review = typeof reviews.$inferSelect;
+export type Application = typeof applications.$inferSelect;
+export type ChatMessage = typeof chatMessages.$inferSelect;
